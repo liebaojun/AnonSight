@@ -77,6 +77,20 @@ def main():
     print('检查：%s\n      %d 个文件，%.1f MB\n' % (TARGET, len(files), total / 1048576))
     bad = 0
 
+    # ---------- ⓪ 体量哨兵 ----------
+    # ★ 2026-09-20 加的。**为什么需要**：`torch` 359.6 MB + `onnxruntime` 28.1 MB +
+    #   `torchvision` 11.2 MB 在包里躺了很久没人发现 —— 因为整条链上**没有任何一环
+    #   问过"这个包为什么这么大"**。本脚本原本只看"有没有个人数据"，
+    #   体积是它唯一会打印、却从不判定的数字（打印了 664 MB，没人拿它当回事）。
+    #   教训跟"PyInstaller 少数据文件只报 warning"是同一条：
+    #   **没有阈值的数字等于没测**。所以给一条线，超了就出声。
+    #   正常约 220 MB（scipy 48 + pymupdf 36 + numpy 20 + sklearn 12 + …）。
+    TOTAL_LIMIT_MB = 320
+    if total / 1048576 > TOTAL_LIMIT_MB:
+        bad += fail('产物 %.0f MB，超过 %d MB 哨兵线 —— 多半是 PyInstaller 收了'
+                    '用不上的大包。先去 app.spec 的 EXCLUDES 里对一遍'
+                    '（torch 系列曾在这里躲了很久）' % (total / 1048576, TOTAL_LIMIT_MB))
+
     # ---------- ① 清单 ----------
     print('【一】产物里有哪些东西')
     rel = [os.path.relpath(p, TARGET) for p in files]
