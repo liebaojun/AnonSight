@@ -71,7 +71,16 @@ Name: "assocano"; Description: "把 .ano 文件关联到 AnonSight（双击就�
 
 [Files]
 ; 程序本体（文件夹模式打出来的那一坨）
-Source: "{#SrcDir}\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs
+;
+; ⚠ `Excludes` 这三项是**2026-09-19 开源发布时补的，必须留着** —— 当时差点出事：
+;   `paths.DATA = exe 所在目录`（见 core/paths.py），所以**只要有人跑过一次 dist 里那个
+;   打包版**（冒烟测试就会跑），程序就会把 `papers/` 写进 `dist\AnonSight\`。
+;   而这一行原本是 `{#SrcDir}\*` 通配 —— 于是**再打一次安装包，就把开发者的论文
+;   和 AI 分析成果一起发给别人了**。实测：dist 里的 paper.ano 与开发者库里的
+;   wu2020 MD5 一致（9AA0C297…），而它确实早于安装包编译时间。
+;   开发者的论文是付费跑出来的个人数据，绝不能随包出去 —— 所以在**这一层**也堵一道，
+;   不能只靠"打完记得跑 check-export"这种纪律（纪律会忘，通配符不会）。
+Source: "{#SrcDir}\*"; DestDir: "{app}"; Excludes: "papers\*,papers,.keys.json"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; 两种图标，**别用混**（主人 2026-09-19 一眼看出来的）：
 ;   · `favicon.ico`   = **软件图标**（只有角色）→ 快捷方式 / 卸载项 / exe 用它
 ;   · `ano-file.ico`  = **.ano 文件图标**（角色 + 那个大红 A）→ 只给文件关联用

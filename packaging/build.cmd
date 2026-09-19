@@ -8,16 +8,24 @@ REM    installer\AnonSight-0.1.0-Setup-preview.exe  发给别人的就是这一�
 REM
 REM  ⚠ 打包前确认没把个人数据带进去 —— 白名单在 app.spec，
 REM     打完之后 exe 启动时还会自检（混进 .keys.json / papers/ 会拒绝启动）。
+REM
+REM  ★ 开源发布版还多一步（2026-09-19 定的，别忘）：
+REM      `dist\AnonSight\_internal\paperide.config.json` 的 adapter 要写成
+REM      **claude-code**（仓库里那份是开发机自用的 deepseek，快 17 倍）。
+REM      理由：发出去的包面向"装了 Claude Code 的人"，默认 claude-code 才开箱能用；
+REM      默认 deepseek 的话，没填 Key 的人一按分析就报"还没配 DeepSeek API Key"，
+REM      而界面上**没有切换适配器的开关**，他会卡在那儿。
+REM      这一步要放在 ISCC 之前。改完记得重跑一次 ISCC（不用重跑 PyInstaller）。
 REM ============================================================
 setlocal
 cd /d "%~dp0"
 
-echo [1/3] 清理上次的产物…
+echo [1/4] 清理上次的产物…
 if exist build     rmdir /s /q build
 if exist dist      rmdir /s /q dist
 if exist installer rmdir /s /q installer
 
-echo [2/3] 打包程序（文件夹模式）…
+echo [2/4] 打包程序（文件夹模式）…
 python -m PyInstaller app.spec --noconfirm --clean
 if errorlevel 1 goto fail
 if not exist dist\AnonSight\AnonSight.exe (
@@ -25,7 +33,15 @@ if not exist dist\AnonSight\AnonSight.exe (
   goto fail
 )
 
-echo [3/3] 生成安装程序…
+echo [3/4] 自查：产物里有没有夹带个人数据…
+REM ★ 这一步是**闸门**，不是"打完再跑的建议" —— 2026-09-19 开源发布前实测踩到：
+REM   `paths.DATA = exe 所在目录`，跑过一次 dist 里的打包版就会在那儿生成 `papers\`；
+REM   而安装器原本用通配符打包，**再打一次就把开发者的论文一起发出去了**。
+REM   所以自查必须放在"生成安装程序"**之前**，不过就停。
+python check-export.py
+if errorlevel 1 goto fail
+
+echo [4/4] 生成安装程序…
 set "ISCC=%LOCALAPPDATA%\Programs\Inno Setup 6\ISCC.exe"
 if not exist "%ISCC%" set "ISCC=iscc"
 "%ISCC%" installer.iss

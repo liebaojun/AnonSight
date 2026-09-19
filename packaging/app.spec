@@ -77,8 +77,18 @@ HIDDEN = [
 #:   打包过程自己要用 —— 排掉会直接 ValueError 中断（踩过一次：日志里报
 #:   'Target module "distutils" already imported as ExcludedModule'，
 #:   而外层 exit code 是 0，看退出码根本发现不了）。
+#:
+#: ★ 2026-09-19 开源发布时加的四个（torch 系列）—— **它们本来就一个都不该在**。
+#:   这台开发机为了别的项目（ComfyUI / WD14 那些）装了 torch 2.12+cpu，
+#:   PyInstaller 不知从哪条链把整棵 torch 树收了进来，**足足 399 MB**：
+#:       torch 359.6 + onnxruntime 28.1 + torchvision 11.2
+#:   而平台代码里 `grep -rn "torch"` 是**零命中**，`import fitz` / `import sklearn`
+#:   在干净进程里也都不带它 —— 就是纯死重，占了安装包体积的一大半。
+#:   排除后安装包 171 MB → 约 70 MB。**排完必须跑 tools/regress_analyze.py 证一遍**
+#:   （那条路会真跑 `layout.py` 的 sklearn 语义布局，是唯一可能碰到数值栈的地方）。
 EXCLUDES = ['tkinter', 'matplotlib', 'pandas', 'PyQt5', 'PySide2', 'PySide6',
-            'IPython', 'pytest', 'notebook', 'jupyter']
+            'IPython', 'pytest', 'notebook', 'jupyter',
+            'torch', 'torchvision', 'onnxruntime']
 
 a = Analysis(
     ['app.py'],
