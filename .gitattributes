@@ -1,0 +1,13 @@
+# 统一行尾，免得 Windows 和 Linux 的贡献者互相污染对方的 diff
+* text=auto eol=lf
+
+# Windows 批处理必须是 CRLF，否则可能不被 cmd 正确执行
+*.cmd text eol=crlf
+*.bat text eol=crlf
+
+# 二进制（别做任何转换）
+*.png binary
+*.ico binary
+*.jpg binary
+*.ano binary
+*.pdf binary
