@@ -1,0 +1,610 @@
+<title>AnonSight · 平台说明</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Newsreader:ital,opsz,wght@0,6..72,400;0,6..72,600;1,6..72,400&family=Noto+Sans+SC:wght@400;500;700&family=Noto+Serif+SC:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap">
+<style>
+  /* ---------- 令牌：直接用**平台自己那套配色**（保证说明页与产品是同一个视觉语言） ---------- */
+  :root{
+    color-scheme: light;
+    --page:#f4f4f1; --surface:#fcfcfb; --surface-2:#eeeeea;
+    --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+    --grid:#e1e0d9; --border:rgba(11,11,11,.10); --border-2:rgba(11,11,11,.16);
+    --mech:#2a78d6;      /* 机制发现 · 四类图型语义色之一 */
+    --app:#eb6834;       /* 应用与工程改造 */
+    --conc:#1baf7a;      /* 结论与展望 */
+    --struct:#898781;    /* 结构 / 论断 */
+    --hl:#fff3bf;
+    --shadow:0 1px 2px rgba(11,11,11,.05), 0 8px 24px rgba(11,11,11,.06);
+    --serif:'Newsreader','Noto Serif SC',Songti SC,SimSun,serif;
+    --sans:'Noto Sans SC',-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-serif;
+    --mono:'JetBrains Mono',ui-monospace,SFMono-Regular,Consolas,monospace;
+    --gut:clamp(16px,4vw,40px);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      color-scheme: dark;
+      --page:#0d0d0d; --surface:#1a1a19; --surface-2:#232321;
+      --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+      --grid:#2c2c2a; --border:rgba(255,255,255,.10); --border-2:rgba(255,255,255,.18);
+      --mech:#3987e5; --app:#d95926; --conc:#199e70; --struct:#898781;
+      --hl:#4a4218;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45);
+    }
+  }
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --page:#0d0d0d; --surface:#1a1a19; --surface-2:#232321;
+    --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --border:rgba(255,255,255,.10); --border-2:rgba(255,255,255,.18);
+    --mech:#3987e5; --app:#d95926; --conse:#199e70; --conc:#199e70; --struct:#898781;
+    --hl:#4a4218;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 10px 30px rgba(0,0,0,.45);
+  }
+
+  body{
+    margin:0; background:var(--page); color:var(--ink);
+    font-family:var(--sans); font-size:16px; line-height:1.75;
+    -webkit-font-smoothing:antialiased;
+    padding-inline:var(--gut); padding-block:0;
+  }
+  .wrap{max-width:1080px; margin-inline:auto; padding-block:56px 96px}
+  .prose{max-width:70ch}
+  h1,h2,h3{font-family:var(--serif); text-wrap:balance; margin:0; letter-spacing:-.01em}
+  h1{font-size:clamp(34px,6vw,58px); line-height:1.1; font-weight:600}
+  h2{font-size:clamp(22px,3vw,30px); line-height:1.25; font-weight:600; margin-top:0}
+  h3{font-size:17px; font-weight:600; margin:0}
+  p{margin:0}
+  a{color:var(--mech)}
+  code,.mono{font-family:var(--mono); font-size:.88em}
+  .label{font-family:var(--mono); font-size:11px; letter-spacing:.08em; text-transform:uppercase; color:var(--muted)}
+  section{margin-top:64px; display:flex; flex-direction:column; gap:18px}
+  .sec-head{display:flex; flex-direction:column; gap:8px; border-top:1px solid var(--grid); padding-top:20px}
+
+  header.hero{display:flex; flex-direction:column; gap:22px}
+  .lede{font-size:clamp(17px,2.1vw,20px); color:var(--ink-2); max-width:60ch}
+  .metastrip{display:flex; flex-wrap:wrap; gap:8px}
+  .pill{
+    font-family:var(--mono); font-size:11.5px; padding:4px 10px; border-radius:999px;
+    border:1px solid var(--border-2); color:var(--ink-2); background:var(--surface);
+    display:inline-flex; align-items:center; gap:6px;
+  }
+  .dot{width:6px; height:6px; border-radius:50%; background:var(--conc)}
+
+  /* ---------- 三栏排布示意图：用平台自己的结构画 ---------- */
+  .layout{
+    display:grid; grid-template-columns:1.05fr 2fr 1.5fr .62fr; gap:8px;
+    background:var(--surface); border:1px solid var(--border); border-radius:14px;
+    padding:12px; box-shadow:var(--shadow);
+  }
+  .col{background:var(--page); border:1px solid var(--grid); border-radius:9px; padding:11px 12px;
+       display:flex; flex-direction:column; gap:8px; min-height:210px}
+  .col .cap{font-family:var(--mono); font-size:10.5px; color:var(--muted); letter-spacing:.06em}
+  .col .t{font-size:13px; font-weight:600; line-height:1.45}
+  .col .s{font-size:12px; color:var(--ink-2); line-height:1.6}
+  .col.detail{background:var(--surface-2); border-style:dashed; justify-content:center; text-align:center}
+  .skel{height:6px; border-radius:3px; background:var(--grid)}
+  .skel.w70{width:70%} .skel.w45{width:45%} .skel.w85{width:85%}
+  .fig{display:flex; gap:6px; flex-wrap:wrap; margin-top:auto}
+  .chip{--m:var(--mech); font-family:var(--mono); font-size:10px; padding:3px 7px; border-radius:6px;
+        border:1px solid var(--m); color:var(--m)}
+  .chip.a{border-color:var(--app); color:var(--app)}
+  .chip.c{border-color:var(--conc); color:var(--conc)}
+
+  /* ---------- 样本卡（只给两个特色功能用，别处不撒） ---------- */
+  .specimen{background:var(--surface); border:1px solid var(--border); border-radius:14px;
+            box-shadow:var(--shadow); overflow:hidden}
+  .specimen .bar{display:flex; justify-content:space-between; align-items:center; gap:12px;
+                 padding:10px 16px; border-bottom:1px solid var(--grid); background:var(--surface-2)}
+  .specimen .body{padding:16px 18px; display:flex; flex-direction:column; gap:12px}
+  .q{font-size:14px; line-height:1.7; color:var(--ink); border-left:2px solid var(--grid); padding-left:12px}
+  .zh{font-size:15px; line-height:1.8; color:var(--ink)}
+  .row{display:flex; flex-direction:column; gap:4px}
+  .row .k{font-family:var(--mono); font-size:10.5px; color:var(--muted); letter-spacing:.05em}
+  .warn{background:var(--hl); color:var(--ink); font-size:13.5px; line-height:1.7; padding:9px 12px; border-radius:8px}
+
+  /* 概念卡：跨节统计用小柱条 */
+  .bars{display:flex; flex-wrap:wrap; gap:6px}
+  .bars i{display:block; width:22px; background:var(--mech); border-radius:2px; opacity:.85}
+  .bars i.a{background:var(--app)} .bars i.c{background:var(--conc)}
+  .statline{display:flex; flex-wrap:wrap; gap:22px; margin-top:2px}
+  .stat{display:flex; flex-direction:column}
+  .stat b{font-family:var(--serif); font-size:26px; line-height:1.1; font-weight:600}
+  .stat span{font-size:12px; color:var(--muted)}
+
+  /* ---------- 表格 ---------- */
+  .tw{overflow-x:auto}
+  table{border-collapse:collapse; width:100%; min-width:560px; font-size:14px}
+  th,td{text-align:left; padding:11px 14px; border-bottom:1px solid var(--grid); vertical-align:top}
+  th{font-size:11.5px; font-family:var(--mono); letter-spacing:.05em; color:var(--muted); font-weight:500;
+     text-transform:uppercase}
+  td.now{color:var(--muted)}
+  tr td:first-child{color:var(--ink-2); width:34%}
+
+  /* ---------- 功能清单 ---------- */
+  .grid2{display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:14px}
+  .card{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:16px 18px;
+        display:flex; flex-direction:column; gap:9px}
+  .card ul{margin:0; padding-left:18px; display:flex; flex-direction:column; gap:6px}
+  .card li{font-size:13.5px; line-height:1.65; color:var(--ink-2)}
+  .card li b{color:var(--ink); font-weight:600}
+
+  .note{font-size:13.5px; color:var(--muted); line-height:1.7}
+  .quote{font-family:var(--serif); font-size:clamp(19px,2.6vw,25px); line-height:1.5; color:var(--ink);
+         border-left:3px solid var(--mech); padding-left:18px; max-width:52ch}
+  footer{margin-top:72px; border-top:1px solid var(--grid); padding-top:20px; color:var(--muted); font-size:13px}
+
+  /* ---------- 界面实拍 ---------- */
+  figure.shot{margin:18px 0 0; display:flex; flex-direction:column; gap:8px}
+  figure.shot img{width:100%; height:auto; display:block; border-radius:10px;
+                  border:1px solid var(--border); box-shadow:var(--shadow)}
+  figure.shot figcaption{font-size:13px; color:var(--muted); line-height:1.6}
+  figure.shot figcaption b{color:var(--ink); font-weight:600}
+  .shots2{display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin-top:16px}
+
+  /* ---------- 顶部链接条 ---------- */
+  .navlinks{display:flex; flex-wrap:wrap; gap:8px; margin-top:16px}
+  .navlinks a{font-size:13px; text-decoration:none; color:var(--ink-2); background:var(--surface);
+              border:1px solid var(--border); border-radius:999px; padding:6px 14px; transition:.15s}
+  .navlinks a:hover{color:var(--ink); border-color:var(--border-2); background:var(--surface-2)}
+  .navlinks a.primary{background:var(--mech); border-color:var(--mech); color:#fff}
+  .navlinks a.primary:hover{filter:brightness(1.08)}
+  .counter{margin-top:14px}
+  .counter img{height:22px; vertical-align:middle}
+
+  @media (max-width:820px){
+    .layout{grid-template-columns:1fr}
+    .col{min-height:0}
+    .col.detail{text-align:left}
+  }
+  @media (prefers-reduced-motion: reduce){ *{transition:none!important; animation:none!important} }
+</style>
+
+<div class="wrap">
+
+  <header class="hero prose">
+    <span class="label">论文精读平台 · 本地运行 · 单人开发</span>
+    <h1>AnonSight</h1>
+    <p class="lede">把「读一篇英文论文」从<strong>翻页 + 查词</strong>，变成<strong>有地图的阅读</strong>：
+      右手边永远是一张「你正在读的这一节讲了什么」的思想图，图上每个方框、每条箭头，都能点回原文那一句。</p>
+    <div class="metastrip">
+      <span class="pill"><span class="dot"></span>独立验收已到第 12 轮</span>
+      <span class="pill">全本地 · 离线可用</span>
+      <span class="pill">一篇论文一键分析 ≈ 几毛钱</span>
+      <span class="pill">11 篇真实论文实测</span>
+      <span class="pill">自有格式 .ano · 有桌面版</span>
+    </div>
+    <nav class="navlinks">
+      <a class="primary" href="https://github.com/liebaojun/AnonSight/releases">⬇ 下载安装包 / 示范文件</a>
+      <a href="https://github.com/liebaojun/AnonSight">GitHub 仓库</a>
+      <a href="https://github.com/liebaojun/AnonSight#-参与贡献">参与贡献</a>
+      <a href="https://github.com/liebaojun/MakoCode">MakoCode</a>
+    </nav>
+    <div class="counter">
+      <img src="https://count.getloli.com/@anonsight?theme=gelbooru&padding=7&scale=1" alt="visitors">
+    </div>
+  </header>
+
+  <section class="prose">
+    <div class="sec-head">
+      <span class="label">一 · 愿景</span>
+      <h2>为什么不是「PDF 阅读器 + 翻译插件」</h2>
+    </div>
+    <p>读文献真正的卡点不是不认得单词，而是<strong>读完一段之后说不清它在论证什么</strong>，以及<strong>这一节的结论和上一节的机制是什么关系</strong>。
+      翻译插件解决的是字面，AnonSight 想解决的是结构：把一篇论文拆成「节 → 导读 → 思想图 → 原文依据」四层，
+      每一层都能一路点回原句。它不是给你更多信息，是把论文<strong>压缩成可核对的地图</strong>。</p>
+    <p class="quote">「让老师对读文献的全部需求，尽量都在这一个平台内满足。」</p>
+    <p class="note">三条定调（开发时就写死、后面不再改）：<strong>图由 AI 自动生成、人只改不画</strong>；
+      <strong>先做单篇，但概念 ID 必须全局</strong>（结构上能长成跨文献对比）；
+      <strong>先自己用，但要能开源</strong>。</p>
+  </section>
+
+  <section>
+    <div class="sec-head prose">
+      <span class="label">二 · 排布</span>
+      <h2>三栏 + 一列详情，右栏跟着你读到的位置走</h2>
+    </div>
+    <div class="layout">
+      <div class="col">
+        <span class="cap">左栏 · 三个页签</span>
+        <span class="t">翻译 / 摘录 / 原文</span>
+        <span class="s">原文页签会跟着右栏的图高亮到对应那句；摘录把划过的词句攒成你自己的表达库。</span>
+        <div class="fig"><span class="chip">划词翻译</span><span class="chip a">收进摘录</span></div>
+      </div>
+      <div class="col">
+        <span class="cap">中栏 · PDF</span>
+        <span class="t">真 PDF 渲染 + 高亮层</span>
+        <div class="skel w85"></div><div class="skel w70"></div><div class="skel w85"></div>
+        <span class="s">彩色高亮悬停出中文释义卡；<code>Ctrl+滚轮</code> 缩放，页宽永远不超过这一栏。</span>
+        <div class="fig"><span class="chip">悬停释义</span><span class="chip">预标注层</span></div>
+      </div>
+      <div class="col">
+        <span class="cap">右栏 · 思想图</span>
+        <span class="t">导读卡 + 四种图型</span>
+        <div class="fig" style="margin-top:0">
+          <span class="chip">概念网</span><span class="chip">流程图</span><span class="chip a">模式图</span><span class="chip">对照表</span>
+        </div>
+        <span class="s">PDF 一滚，右栏自动切到对应那一节的图；你手点过就先暂停，滚回那一节自动恢复。</span>
+      </div>
+      <div class="col detail">
+        <span class="cap">详情子列</span>
+        <span class="t">点方框 / 点箭头</span>
+        <span class="s">这个概念在本文出现的<strong>所有位置</strong>，一处一句原文，点一下跳回左栏高亮。</span>
+      </div>
+    </div>
+    <p class="note prose">另有两种整屏状态：<strong>专心阅读</strong>（收起右栏、PDF 自动铺满中间那栏）和<strong>适配窗口</strong>（窗口大小变过之后一键重排三栏并重新取景）。</p>
+
+    <div class="prose" style="margin-top:26px">
+      <p><strong>下面是实拍</strong>（不是示意图）：</p>
+    </div>
+    <figure class="shot prose">
+      <img src="assets/screenshots/01-reading.png" alt="AnonSight 三栏主界面">
+      <figcaption>左栏划词翻译（<b>给的是"这个词在这句话里的意思"</b>，不是词典义项罗列）｜中栏真 PDF，划词与高亮都在这层 ｜右栏是<b>跟着阅读位置走</b>的思想图。</figcaption>
+    </figure>
+    <div class="shots2">
+      <figure class="shot">
+        <img src="assets/screenshots/02-section-lead.png" alt="导读卡与关键概念">
+        <figcaption><b>导读卡 + 关键概念</b>：一句话说清这节讲什么、外加"读的时候盯住哪一句"；下面那排是本节最该记住的概念，点开即概念卡。</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="assets/screenshots/03-trace-back.png" alt="点图溯源回原文">
+        <figcaption><b>点图回原文</b>：点图上的任意方框或箭头，左栏直接跳到支撑它的<em>那一句原文</em>并高亮——"AI 说的对不对"是能当场核对的。</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="assets/screenshots/04-hover-gloss.png" alt="悬停出中文释义">
+        <figcaption><b>悬停看释义</b>：全文自动标注五色高亮（搭配/动词/逻辑/句式/术语），鼠标停在色块上就出中文释义卡，一个常驻气泡都不画。</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="assets/screenshots/05-domain-map.png" alt="模式图">
+        <figcaption><b>模式图</b>：构建体与结构域怎么搭的、几条设计差在哪一段——这种"长什么样"的内容，气泡网和方框流程图都讲不清，所以专门有一种图型。</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head prose">
+      <span class="label">三 · 特色之一</span>
+      <h2>翻译：给的不是词典义项，是「这句话里它是什么意思」</h2>
+    </div>
+    <div class="prose" style="display:flex; flex-direction:column; gap:12px">
+      <p>选中一个词或短语，出来的是三样东西：<strong>整句译文</strong> → <strong>它在这个语境下的意思</strong> → <strong>容易理解错时的提醒</strong>。
+        译文里基因/蛋白/受体名保留英文（<code>Csk</code>、<code>CD3ε</code>、<code>ITAM</code>），是为了让你能对上原文；
+        而 <code>signaling</code>、<code>chimeric antigen receptor</code> 这类通用学术词必须翻成中文——保留反而读起来夹生。</p>
+      <p>真实案例（下面这张是现场调接口生成的，不是示意图）：</p>
+    </div>
+    <div class="specimen prose" style="max-width:none">
+      <div class="bar">
+        <span class="label">翻译卡 · wu2020 · 第 2 页</span>
+        <span class="label">划的词：selectivity（普通单词）</span>
+      </div>
+      <div class="body">
+        <div class="q">A subpopulation of CD3ε ITAMs was monophosphorylated, owing to Lck kinase <b>selectivity</b>, and specifically recruited the inhibitory Csk kinase to attenuate TCR signaling.</div>
+        <div class="row">
+          <span class="k">整句译文</span>
+          <p class="zh">一部分 CD3ε ITAM 被单磷酸化，这归因于 Lck 激酶的<strong>选择性</strong>，并特异性地招募抑制性 Csk 激酶来减弱 TCR 信号传导。</p>
+        </div>
+        <div class="row">
+          <span class="k">该词在这句里的意思</span>
+          <p class="zh">选择性 —— 此处指 Lck 激酶对底物特定位点的偏好性，即只磷酸化 CD3ε ITAM 的单个酪氨酸而非两个。</p>
+        </div>
+        <p class="warn">⚠ 不是日常说的「选择性/挑选」，而是酶学中的<strong>底物位点选择性</strong>：Lck 只磷酸化 ITAM 中的一个酪氨酸（单磷酸化），而非两个都磷酸化。</p>
+      </div>
+    </div>
+    <p class="note prose">一篇论文会把整句译文<strong>预先算好并缓存</strong>（几百到上千句），所以划词是秒回的；
+      每次一键分析时顺带预热，读到哪句都不卡。</p>
+    <p class="note prose"><strong>选词的规矩</strong>：选中什么就翻译什么——平台<strong>不会自作主张往两边扩词</strong>。
+      唯一的例外是<strong>被换行拆开的词</strong>：<code>hypophos-</code> 换行接 <code>phorylated</code>，
+      那本来就是一个词，会自动接回来再翻（<code>well-known</code> 这种真连字符不受影响）。</p>
+  </section>
+
+  <section>
+    <div class="sec-head prose">
+      <span class="label">四 · 特色之二</span>
+      <h2>概念链接：同一个概念，跨节串成一条线</h2>
+    </div>
+    <div class="prose" style="display:flex; flex-direction:column; gap:12px">
+      <p>论文里同一个东西会在十来个地方出现，但每次叫法、上下文都不同。平台给<strong>每个概念一个全局 ID</strong>（跨节复用，不是「本节第 3 号节点」），
+        于是一张图上的<strong>一个气泡就能当索引</strong>用：点开它 → 这个概念在全文出现过的每一处、每一句原文依据，按节列出来；点任意一条，左栏跳到那句并高亮。</p>
+      <p>下面这张卡的真身来自库里 wu2020 那篇（<span class="mono">ε-ITAM</span>，全文最"枢纽"的一个概念）：</p>
+    </div>
+    <div class="specimen prose" style="max-width:none">
+      <div class="bar">
+        <span class="label">概念卡 · wu2020</span>
+        <span class="label">点图上的「ε-ITAM」气泡</span>
+      </div>
+      <div class="body">
+        <div style="display:flex; align-items:baseline; gap:10px; flex-wrap:wrap">
+          <h3 style="font-family:var(--serif); font-size:20px">ε-ITAM</h3>
+          <span class="mono" style="font-size:12px; color:var(--muted)">概念 ID <code>cd3e.itam</code> · 机制发现</span>
+        </div>
+        <p class="zh" style="font-size:14px; color:var(--ink-2)">CD3ε ITAM（T 细胞受体 CD3ε 链上的免疫受体酪氨酸激活基序）</p>
+        <div class="statline">
+          <span class="stat"><b>9</b><span>出现在 9 个节</span></span>
+          <span class="stat"><b>14</b><span>条原文依据</span></span>
+          <span class="stat"><b>29</b><span>条与其他概念的关系</span></span>
+        </div>
+        <div class="row">
+          <span class="k">每节的依据条数（点任意一根跳回原文）</span>
+          <div class="bars">
+            <i class="c" style="height:10px"></i><i class="c" style="height:6px"></i><i class="c" style="height:6px"></i>
+            <i class="c" style="height:10px"></i><i class="c" style="height:6px"></i><i class="c" style="height:10px"></i>
+            <i class="c" style="height:6px"></i><i class="c" style="height:10px"></i><i class="c" style="height:10px"></i>
+          </div>
+        </div>
+        <div class="row">
+          <span class="k">和它相关的关系</span>
+          <p class="zh" style="font-size:14px">→ 被 Lck 选择性单磷酸化 &nbsp;·&nbsp; → 招募抑制性激酶 Csk &nbsp;·&nbsp; ← 由 BRS 上调持久性</p>
+        </div>
+      </div>
+    </div>
+    <p class="note prose">这条设计决定了一个上限也开了一个口子：概念 ID 是全局的，所以<strong>将来同一批概念可以在不同论文之间连起来</strong>（跨文献对比），
+      现在还没做——但目前单篇内的「一个概念 → 全文所有出处」已经能用。</p>
+  </section>
+
+  <section>
+    <div class="sec-head prose">
+      <span class="label">五 · 和普通阅读器的差别</span>
+      <h2>同样是读 PDF，多出来的是什么</h2>
+    </div>
+    <div class="tw">
+      <table>
+        <thead>
+          <tr><th>这件事</th><th>普通 PDF 阅读器 / 翻译插件</th><th>AnonSight</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>翻译的粒度</td><td class="now">词 → 词典义项罗列</td><td><strong>整句译文 + 该词在本句的语境义 + 易错提醒</strong>，专业名词按论文自己的术语表统一</td></tr>
+          <tr><td>读完一节能带走什么</td><td class="now">几处高亮</td><td><strong>一张这一节的导读 + 一张思想图</strong>（概念网/流程图/模式图/对照表，按内容自动选型）</td></tr>
+          <tr><td>能不能核对"AI 说的对不对"</td><td class="now">—</td><td><strong>每个方框、每条箭头都挂着原文引文</strong>；引文必须能在本节原文里逐字找到，否则这一节打回重做</td></tr>
+          <tr><td>概念跨节关联</td><td class="now">靠自己记</td><td><strong>全局概念 ID</strong>：一个气泡点开 = 这个概念在全文的每一处出处</td></tr>
+          <tr><td>阅读位置与图</td><td class="now">—</td><td><strong>PDF 滚到哪一节，右栏自动换成那一节的图</strong>（手点则暂停跟随，滚回去自动恢复）</td></tr>
+          <tr><td>积累</td><td class="now">高亮散在各处</td><td>划过的词句进<strong>表达库</strong>（搭配/动词/逻辑/句式/术语分型），可导出 JSON 带走</td></tr>
+          <tr><td>数据在哪</td><td class="now">云端账号</td><td><strong>全在本机</strong>，离线可用；原文、AI 生成的图与标注、<strong>以及你自己标的高亮</strong>都封在那一篇自己的 <code>.ano</code> 里（一个文件就能带走，换电脑重开还在）</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head prose">
+      <span class="label">六 · 功能全表</span>
+      <h2>现在能做的事</h2>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>入库与自动分析</h3>
+        <ul>
+          <li><b>两种导入</b>：把 PDF 拖到页面上，或顶栏「＋ 导入 PDF」</li>
+          <li><b>自动分节</b>：认出编号标题、一级/二级标题，剔掉正文碎片与图内文字</li>
+          <li><b>一键分析</b>：逐节产出导读 + 思想图 → 校验 → 标注层 → 翻译预热 → 打包成 <code>.ano</code>，跑完自动刷新</li>
+          <li><b>论文库</b>：改名、拖拽排序、删除、检索；当前在读的那篇挂「正在阅读」徽章</li>
+          <li><b>续读</b>：下次打开直接回到你上次读的那篇</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>思想图（四种图型）</h3>
+        <ul>
+          <li><b>概念网</b>：这节在铺哪些概念、谁和谁有关</li>
+          <li><b>流程图</b>：有先后、有分支的过程（信号级联、实验步骤）</li>
+          <li><b>模式图</b>：构建体/结构域怎么搭的</li>
+          <li><b>对照表</b>：突变体 × 表型、方案对比</li>
+          <li><b>默认图智能化</b>：一节有多张图时，按内容挑一张当默认（长节的第一张必须是覆盖全节的概览）</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>导读与关键概念</h3>
+        <ul>
+          <li><b>导读卡</b>：一句话说清这节讲什么，外加「读的时候盯住哪一句」</li>
+          <li><b>关键概念气泡</b>：这一节最该记住的几个概念，点开即概念卡</li>
+          <li><b>节点聚焦</b>：点一个概念可以把它当中心重排，看它跟谁连着</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>标注层与表达库</h3>
+        <ul>
+          <li><b>两层分得开</b>：AI 预标注是<b>一层淡色</b>，你自己标的是<b>同色 + 底部实色下划线</b>——在 PDF 里一眼看出是谁标的</li>
+          <li><b>自动高亮五色</b>：搭配/动词/逻辑/句式/术语，悬停出中文释义</li>
+          <li><b>清除模式</b>：进清除模式后<b>点一下那个色块</b>就清掉它；<b>AI 预标注那层动不了</b>；<code>Ctrl+Z</code> 可撤销</li>
+          <li><b>标注存两份</b>：即时写浏览器（离线不丢）+ 写进论文自己的 <code>notebook.json</code>（换电脑重开还在、也还能清除）</li>
+          <li><b>划词收进摘录</b>，再一键整理成表达库格式（自动编号、自动判类型）；可导出 JSON 带走</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>阅读体验</h3>
+        <ul>
+          <li><b>滚动跟随</b>：PDF 滚到哪，右栏切到哪一节</li>
+          <li><b>专心阅读</b>：收起右栏，PDF 自动铺满，左边只留翻译/摘录</li>
+          <li><b>PDF 缩放</b>：<code>Ctrl+滚轮</code>（触控板捏合同样可用）/ <code>Ctrl+0</code> 适应宽度；页宽任何时刻不超过中间那栏</li>
+          <li><b>页码与跳转</b>：<code>第 [n] 页 / 共 N 页</code>，可直接<b>输入页码回车跳转</b>（越界自动夹住、Esc 取消）</li>
+          <li><b>键盘翻页</b>：空格 / PgUp / PgDn / ↑↓ / Home / End</li>
+          <li><b>全文搜索</b>：<code>Ctrl+F</code>（或工具条「搜索」）→ 查某个词/基因名<b>出现在哪些页</b>，
+              计数是「第 3/17 个」，回车下一个、Shift+回车上一个（到底绕回开头），Esc 关。
+              命中画成<b>琥珀金空心框</b>，和四条标注层的实心色块一眼分得开</li>
+          <li><b>点引用和图号跳转</b>：正文里的 <code>[12]</code>、<code>Fig. 3</code> 点一下直接跳过去（目标页闪一下）；
+              DOI 等外链在新标签页打开。<b>拖一下是选词、点一下才跳</b>，两者不打架</li>
+          <li><b>记住读到哪</b>：重开这篇论文自动回到上次那一页</li>
+          <li><b>溯源跳转</b>：点图上的元素 → 左栏跳原文并高亮那一句</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>它是怎么保证质量的</h3>
+        <ul>
+          <li><b>校验器是硬闸门</b>：AI 写的每条引文必须能在本节原文里<strong>逐字找到</strong>，否则整节打回重做；宁可少画，不许编造</li>
+          <li><b>引文吸附</b>：模型抄错（大写、希腊字母、弯引号）时把它"吸"回原文那一段，而不是放宽校验</li>
+          <li><b>独立验收</b>：每轮验收由<strong>另一个 agent</strong>用真鼠标操作完成，报告编号累积、绝不覆盖（已到第 12 轮）</li>
+          <li><b>失败可复盘</b>：被回绝的原稿全部留档，不靠猜</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head prose">
+      <span class="label">七 · 自有格式</span>
+      <h2><code>.ano</code>：一个文件，装下一整篇论文</h2>
+    </div>
+    <p class="prose">平台的存库格式叫 <code>.ano</code> —— 它不是压缩包、不是数据库，而是<strong>一份标准 PDF，加上几层随身的分析成果</strong>。</p>
+    <div class="tw">
+      <table>
+        <thead><tr><th>一个 .ano 里有什么</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>原文</td><td>就是那一篇论文本身，页面一个字节没改</td></tr>
+          <tr><td>思想图与导读</td><td>「一键分析」产出的节划分、导读卡、四种图型</td></tr>
+          <tr><td>标注与译文</td><td>AI 预标注、你自己标的高亮与生词、划词的翻译缓存</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>它本身就是一份标准 PDF</h3>
+        <ul>
+          <li>用别的 PDF 阅读器打开照样能看；<b>你自己打的高亮也在</b>——那是标准 PDF 注释，不是只有 AnonSight 认得的东西</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>双击就打开那一篇</h3>
+        <ul>
+          <li>双击 <code>.ano</code> 直接用 AnonSight 打开它，不用先开平台、再进库里翻（安装时装好了文件关联）</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>拷一个文件就走</h3>
+        <ul>
+          <li>发给别人、拷到另一台电脑、丢进网盘，都是拷<b>一个文件</b>：图、标注、译文跟着走，不用带一个文件夹</li>
+        </ul>
+      </div>
+    </div>
+    <p class="note prose">分析跑完会自动产出 <code>.ano</code>；库里每一篇都是这么存的。</p>
+  </section>
+
+  <section>
+    <div class="sec-head prose">
+      <span class="label">八 · 桌面版</span>
+      <h2>从「起脚本 + 开浏览器」变成真正的桌面软件</h2>
+    </div>
+    <div class="grid2">
+      <div class="card">
+        <h3>安装</h3>
+        <ul>
+          <li><b>到 <a href="https://github.com/liebaojun/AnonSight/releases">Releases</a> 下载</b> <code>AnonSight-0.1.0-Setup-preview.exe</code>，
+              一键装到任意位置，自动建开始菜单与桌面快捷方式，并装上 <code>.ano</code> 的文件关联</li>
+          <li><b>不装 Python、不用开浏览器</b>：装完就是一个程序，双击即用，自带窗口</li>
+          <li>也可以直接跑源码：<code>pip install -r requirements.txt</code> → <code>python server.py</code></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>AI 是可选的</h3>
+        <ul>
+          <li><b>不接 AI 也能当 <code>.ano</code> 阅读器用</b>：能看章节切分、思想图、标注和已有的译文；只是不能重跑「一键分析」、也不能对刚划的词做实时翻译</li>
+          <li><b>一键分析</b>需要一个本机 agent：默认走 <code>claude-code</code>（电脑里要装了 Claude Code；
+              装了 <a href="https://github.com/liebaojun/MakoCode">MakoCode</a> 的机器自带），也可改成 <code>deepseek</code> 直连 API</li>
+          <li><b>划词翻译</b>固定走 DeepSeek API：设置里填自己的 Key（存在本机、只发给 DeepSeek）</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>上手</h3>
+        <ul>
+          <li>顶栏「<b>这是什么？</b>」是面向大众的说明面板：怎么用 / 图是怎么来的 / 「关于 <code>.ano</code> 文件」——第一次上手先点它</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head prose">
+      <span class="label">九 · 开源</span>
+      <h2>它在 GitHub 上，而且很需要别人来改</h2>
+    </div>
+    <div class="prose" style="display:flex;flex-direction:column;gap:12px">
+      <p>代码在 <a href="https://github.com/liebaojun/AnonSight"><strong>github.com/liebaojun/AnonSight</strong></a>，
+         MIT 协议，随便用随便改。</p>
+    </div>
+
+    <div class="prose" style="margin-top:18px">
+      <h3 style="font-family:var(--serif);font-size:19px;margin-bottom:8px">一件必须先说清楚的事：它偏科</h3>
+      <p>开发与测试过程中，<strong>绝大多数样本都是生物医学论文</strong>（CAR-T、信号通路方向）。
+        它的骨架——分节、溯源校验、图型渲染、<code>.ano</code> 格式——是通用的，
+        但<strong>提示词和「什么内容用什么图」的规则，是照着生物医学的行文习惯调出来的</strong>。
+        换到其他学科，效果大概率会打折。</p>
+      <p>所以<strong>最欢迎的一类贡献，就是让它在你自己的领域里能用</strong>：
+        改 <code>prompts/</code> 里那三个 md（领域抽取规则 + 术语规范），提个 PR 就行。</p>
+    </div>
+
+    <div class="grid2" style="margin-top:18px">
+      <div class="card">
+        <h3>AI 接口：目前只接了两条</h3>
+        <ul>
+          <li><b><code>claude-code</code>（默认）</b>：后台拉起本机的 <code>claude</code> 命令——所以<b>电脑里得有 Claude Code</b></li>
+          <li><b><code>deepseek</code></b>：直连 DeepSeek API，自填 Key</li>
+          <li>换后端要改 <code>paperide.config.json</code> 的 <code>adapter</code> 字段（界面上暂时没有开关）</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>欢迎加 agent —— 但是「增加」不是「替换」</h3>
+        <ul>
+          <li>用 Codex / DSH / Cursor / 别的什么 agent 的人，非常欢迎来加一条路</li>
+          <li><code>core/adapters.py</code> 里的 <code>ADAPTERS</code> <b>本来就是注册表</b>：加一个类 + 一行注册</li>
+          <li>请<b>保留 <code>claude-code</code></b>，做成并列关系——别把 Claude 那条换掉，
+              不然装了 CC 的人反而用不了了</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>插件化的口子留好了，但还没做机制</h3>
+        <ul>
+          <li><b>领域提示词</b>：<code>prompts/*.md</code> 是纯文件，换个学科就是换几个文件</li>
+          <li><b>AI 后端</b>：<code>adapters.py</code> 是注册表</li>
+          <li><b>新图型</b>（统计图、折线图、时序图……）：前端目前是<b>写死的 if/else 分发</b>，
+              这是最大的一块硬骨头，也是最有价值的贡献</li>
+          <li>正式的插件加载机制<b>故意没做</b>——先有真人写过插件，再谈怎么分发</li>
+        </ul>
+      </div>
+      <div class="card">
+        <h3>其它欢迎的东西</h3>
+        <ul>
+          <li>bug 报告（带复现步骤最好，这个平台是「真鼠标操作」测出来的）</li>
+          <li>扫描版 PDF 的适配、非 Windows 平台的支持</li>
+          <li><b>任何一篇「这个平台读起来不对劲」的论文样本</b>——比什么都有用</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <section class="prose">
+    <div class="sec-head">
+      <span class="label">十 · 现状与边界</span>
+      <h2>能用，但别指望它是成品软件</h2>
+    </div>
+    <p><strong>已经过的关</strong>：独立验收已到第 12 轮；装好的那版实测走通一条"金标准"——双击 <code>.ano</code> 打开那一篇 →
+      一键分析四步全绿（9/9 节出图 · 284 条标注 · 167 句译文）→ 拖一篇<em>没见过的</em>论文进去 → 自动分节 →
+      每一节都有图有导读 → 标注层出彩色高亮 → 真鼠标悬停出释义卡 → 划普通单词出语境义 → 点图溯源跳回原文。</p>
+    <div class="tw" style="margin-top:6px">
+      <table>
+        <thead><tr><th>边界</th><th>现在是什么情况</th></tr></thead>
+        <tbody>
+          <tr><td>超长的一节出图数量</td><td class="now">模型单次回话有输出上限，最长的节稳定出到 5 张（1 张概览 + 每意思块 1 张）；要更多得改成多次调用</td></tr>
+          <tr><td>宽栏下的流程图</td><td class="now">左右各还剩约 84px 空白；要彻底吃满得把流程图改成多列布局（未做）</td></tr>
+          <tr><td>图特别密的页</td><td class="now">个别页的自动标注会稀疏甚至为空（如某篇 eLife 的 p3/p7）</td></tr>
+          <tr><td>扫描版 PDF</td><td class="now">需要文字层，纯扫描件<strong>没验证过</strong></td></tr>
+          <tr><td>跨文献对比</td><td class="now">概念 ID 已经是全局的、留了口子，但跨论文连图还没做</td></tr>
+          <tr><td>摘录的存放位置</td><td class="now">摘录仍只存在浏览器本地（可导出 JSON 带走）；<strong>高亮标注已经双写进论文文件夹</strong></td></tr>
+          <tr><td>专心阅读的退出</td><td class="now">进「专心阅读」后，右栏那个 <code>⟩</code> 按钮会被压没、点不到 ——
+              请用顶栏的「<strong>退出专心</strong>」按钮回来（已记录待修）</td></tr>
+          <tr><td>装的时候会被拦一下</td><td class="now">安装包<strong>没有代码签名</strong>，别人第一次装会被 Windows SmartScreen 拦成「未知发布者」，
+              点「更多信息 → 仍要运行」即可</td></tr>
+          <tr><td>多个实例</td><td class="now">平台已经开着时，再双击一个 <code>.ano</code> 会<strong>另开一个窗口</strong>，不会切到已经开着的那个</td></tr>
+          <tr><td>某些版式的分节偏粗</td><td class="now">有小标题、但不是规范编号标题的版式（如 eLife 那类）切得偏粗；
+              分析完成后顶栏用的是 AI 认出的真标题，但节划分本身仍是短板</td></tr>
+          <tr><td>怎么跑起来</td><td class="now">有安装程序，一键装（见第八节），装完<strong>不依赖 Python、不用开浏览器</strong>；
+              开发时也可以双击启动脚本跑源码版</td></tr>
+          <tr><td>界面语言</td><td class="now">中文界面，面向中文读者的英文文献精读</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p style="margin-top:8px"><strong>值不值得用，看场景</strong>：如果一篇论文你要读一小时以上、读完还要写组会汇报或综述，
+      它省下的是"来回翻原文核对"的时间；如果你只想扫一眼摘要，用它反而更慢。</p>
+  </section>
+
+  <footer>
+    AnonSight · 项目主页 · 2026-09-19 · MIT License · <a href="https://github.com/liebaojun/AnonSight">GitHub</a> ·
+    <a href="https://github.com/liebaojun/AnonSight/releases">下载</a><br>
+    页面里的翻译样本与概念卡数据均取自平台真实运行结果（wu2020）。界面实拍为真实截图，未作美化。
+  </footer>
+</div>

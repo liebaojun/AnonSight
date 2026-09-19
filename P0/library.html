@@ -1,0 +1,944 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<link rel="icon" href="favicon.ico" sizes="any">
+<link rel="icon" type="image/png" sizes="512x512" href="logo.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>AnonSight · 论文库</title>
+<style>
+/* ============================================================ 配色
+   全部照抄 P0/index.html 的 :root —— 论文库是阅读器的**另一个界面**，不是另一个产品，
+   两页切换时配色/圆角/字号梯度必须严丝合缝。浅深两套各自选步（不是自动翻转），
+   三个入口都要有：media 查询（跟随系统）+ [data-theme=dark]（手动切深）
+   + :not([data-theme=light])（手动切浅时不被 media 抢走）。*/
+:root{
+  color-scheme: light;
+  --surface-1:#fcfcfb; --page:#f9f9f7;
+  --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --border:rgba(11,11,11,.10);
+  --n-mech:#2a78d6; --n-app:#eb6834; --n-conc:#1baf7a;
+  --rel-pos:#008300; --rel-neg:#e34948; --rel-neu:#898781;
+  --hl:#fff3bf;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    color-scheme: dark;
+    --surface-1:#1a1a19; --page:#0d0d0d;
+    --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --border:rgba(255,255,255,.10);
+    --n-mech:#3987e5; --n-app:#d95926; --n-conc:#199e70;
+    --rel-pos:#0ca30c; --rel-neg:#e66767; --rel-neu:#898781;
+    --hl:#4a4218;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --surface-1:#1a1a19; --page:#0d0d0d;
+  --ink:#ffffff; --ink-2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --border:rgba(255,255,255,.10);
+  --n-mech:#3987e5; --n-app:#d95926; --n-conc:#199e70;
+  --rel-pos:#0ca30c; --rel-neg:#e66767; --rel-neu:#898781;
+  --hl:#4a4218;
+}
+
+/* 列表的列宽定义在一处，表头和数据行共用（对不齐就是因为两边各写了一遍） */
+:root{ --cols: 26px minmax(0,1fr) 58px 52px 92px 78px 132px; }
+
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0; background:var(--page); color:var(--ink);
+  font:14px/1.6 system-ui,-apple-system,"Segoe UI","Microsoft YaHei",sans-serif;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+
+/* ---------- 顶栏（与 index.html 的 .topbar 同款） ---------- */
+.topbar{
+  flex:0 0 auto; display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+  padding:10px 18px; background:var(--surface-1); border-bottom:1px solid var(--border);
+}
+.topbar h1{font-size:15px; margin:0; font-weight:650; letter-spacing:.2px}
+.topbar .sub{font-size:12px; color:var(--ink-2)}
+.topbar .spacer{flex:1}
+.badge{
+  font-size:11px; padding:2px 8px; border-radius:99px; border:1px solid var(--border);
+  color:var(--ink-2); background:var(--page);
+}
+button.tbtn{
+  font:inherit; font-size:12px; padding:5px 12px; border-radius:8px; cursor:pointer;
+  border:1px solid var(--border); background:var(--page); color:var(--ink);
+}
+button.tbtn:hover{background:var(--grid)}
+button.tbtn.primary{background:var(--n-mech); border-color:var(--n-mech); color:#fff; font-weight:620}
+button.tbtn.primary:hover{filter:brightness(1.08)}
+button.tbtn.danger{background:var(--rel-neg); border-color:var(--rel-neg); color:#fff; font-weight:620}
+button.tbtn.danger:hover{filter:brightness(1.08)}
+a.tbtn{display:inline-block; text-decoration:none; line-height:1.5}
+
+/* ---------- 工具条：检索 + 排序 ---------- */
+.bar{
+  flex:0 0 auto; display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+  padding:8px 18px; background:var(--surface-1); border-bottom:1px solid var(--border);
+}
+.search{position:relative; display:flex; align-items:center; min-width:260px; flex:0 1 420px}
+.search .ic{position:absolute; left:9px; color:var(--muted); font-size:12.5px; pointer-events:none}
+.search input{
+  font:inherit; font-size:13px; width:100%; padding:6px 28px 6px 26px;
+  border:1px solid var(--border); border-radius:8px; background:var(--page); color:var(--ink);
+}
+.search input:focus{outline:none; border-color:var(--n-mech); background:var(--surface-1)}
+/* type=search 自带一个 ✕，和我们自己的清空按钮并排就是两个叉，关掉原生那个 */
+.search input::-webkit-search-cancel-button,
+.search input::-webkit-search-decoration{-webkit-appearance:none; appearance:none}
+.search .clr{
+  position:absolute; right:6px; border:0; background:transparent; color:var(--muted);
+  font-size:15px; line-height:1; cursor:pointer; padding:2px 5px; border-radius:5px; display:none;
+}
+.search .clr.on{display:block}
+.search .clr:hover{background:var(--grid); color:var(--ink)}
+.bar .lbl{font-size:12px; color:var(--muted)}
+.bar select{
+  font:inherit; font-size:12.5px; padding:5px 8px; border-radius:8px;
+  border:1px solid var(--border); background:var(--page); color:var(--ink); cursor:pointer;
+}
+.bar select:focus{outline:none; border-color:var(--n-mech)}
+#customChip{
+  font-size:11.5px; padding:4px 10px; border-radius:99px; cursor:pointer;
+  border:1px dashed var(--n-mech); color:var(--n-mech); background:transparent;
+}
+#customChip:hover{background:color-mix(in srgb, var(--n-mech) 12%, transparent)}
+.hint{font-size:11.5px; color:var(--muted)}
+
+/* ---------- 列表 ---------- */
+#wrap{flex:1 1 auto; overflow:auto; min-height:0; padding:0 18px 24px}
+.thead{
+  position:sticky; top:0; z-index:5; display:grid; grid-template-columns:var(--cols);
+  gap:10px; align-items:end; padding:9px 10px 8px; background:var(--page);
+  border-bottom:1px solid var(--border);
+}
+.thead .h{font-size:11.5px; color:var(--muted); white-space:nowrap; user-select:none}
+.thead .h.s{cursor:pointer; border-radius:6px}
+.thead .h.s:hover{color:var(--ink)}
+.thead .h .ar{color:var(--n-mech); font-size:10px}
+.thead .h.on{color:var(--ink); font-weight:640}
+
+.row{
+  display:grid; grid-template-columns:var(--cols); gap:10px; align-items:center;
+  padding:9px 10px; border-bottom:1px solid var(--border); cursor:pointer;
+  background:transparent; position:relative;
+}
+.row:hover{background:color-mix(in srgb, var(--n-mech) 7%, transparent)}
+.row.cur{background:color-mix(in srgb, var(--n-mech) 12%, transparent)}
+/* 「正在阅读」标记：主人 2026-09-18 试用说"库里没有一个醒目的标志标识现在读的是哪一篇"。
+   原来只有一层 12% 的底色 + 左侧 2.5px 竖条 —— 太含蓄，扫一眼看不出来。 */
+.curTag{
+  display:inline-block; vertical-align:1px; margin-right:7px; padding:1px 7px;
+  font-size:10.5px; line-height:16px; border-radius:99px; white-space:nowrap;
+  background:var(--n-mech); color:#fff; font-weight:600;
+}
+.row.cur::before{
+  content:''; position:absolute; left:0; top:6px; bottom:6px; width:2.5px;
+  border-radius:2px; background:var(--n-mech);
+}
+.row.dragging{
+  background:var(--surface-1); box-shadow:0 8px 24px rgba(0,0,0,.20);
+  border-radius:10px; border-bottom-color:transparent; z-index:9; cursor:grabbing;
+}
+.row.flash{animation:flash 1.5s ease-out}
+@keyframes flash{
+  0%{background:color-mix(in srgb, var(--n-conc) 40%, transparent)}
+  100%{background:transparent}
+}
+body.nosel, body.nosel *{user-select:none !important; cursor:grabbing}
+
+.grip{
+  color:var(--muted); font-size:14px; line-height:1; text-align:center;
+  cursor:grab; letter-spacing:-1px; opacity:.55;
+}
+.row:hover .grip{opacity:1}
+.grip.off{cursor:not-allowed; opacity:.22}
+
+.ttl{min-width:0}
+.ttl .t1{
+  font-size:13.5px; font-weight:565; line-height:1.45;
+  display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden;
+}
+.ttl .t2{
+  font-size:11.5px; color:var(--muted); margin-top:1px;
+  overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+}
+.ttl mark{background:var(--hl); color:var(--ink); border-radius:3px; padding:0 1px}
+.ttl input.ren{
+  font:inherit; font-size:13.5px; font-weight:565; width:100%; padding:3px 7px;
+  border:1px solid var(--n-mech); border-radius:7px; background:var(--surface-1); color:var(--ink);
+}
+.ttl input.ren:focus{outline:none}
+.c{font-size:12px; color:var(--ink-2); white-space:nowrap; text-align:right}
+.c.dim{color:var(--muted)}
+.st{font-size:11px; padding:2px 8px; border-radius:99px; border:1px solid var(--border); color:var(--muted)}
+.st.ok{color:var(--rel-pos); border-color:color-mix(in srgb, var(--rel-pos) 45%, transparent)}
+.st.no{color:var(--n-app); border-color:color-mix(in srgb, var(--n-app) 45%, transparent)}
+.acts{display:flex; gap:5px; justify-content:flex-end}
+button.mini{
+  font:inherit; font-size:11.5px; padding:3px 9px; border-radius:7px; cursor:pointer;
+  border:1px solid var(--border); background:var(--page); color:var(--ink-2); white-space:nowrap;
+}
+button.mini:hover{background:var(--grid); color:var(--ink)}
+button.mini.del:hover{color:var(--rel-neg); border-color:var(--rel-neg);
+  background:color-mix(in srgb, var(--rel-neg) 12%, transparent)}
+
+/* ---------- 空 / 错 状态 ---------- */
+.state{padding:56px 24px; text-align:center; color:var(--ink-2)}
+.state .big{font-size:34px; line-height:1; color:var(--n-mech); opacity:.85}
+.state .t{font-size:17px; font-weight:640; color:var(--ink); margin-top:12px}
+.state .s{font-size:12.5px; color:var(--muted); margin-top:7px; line-height:1.8}
+.state .s code{
+  font-family:ui-monospace,Consolas,monospace; font-size:11.5px;
+  background:var(--grid); padding:1px 5px; border-radius:5px; color:var(--ink-2);
+}
+.state .btns{margin-top:18px; display:flex; gap:10px; justify-content:center}
+.dropzone{
+  margin:38px auto 0; max-width:620px; border:2px dashed var(--border); border-radius:16px;
+  padding:34px 28px; background:var(--surface-1); text-align:center;
+}
+.dropzone.hot{border-color:var(--n-mech); border-style:solid;
+  background:color-mix(in srgb, var(--n-mech) 8%, var(--surface-1))}
+
+/* ---------- 底部状态栏（Calibre 那种"一共几本/筛出几本"） ---------- */
+.status{
+  flex:0 0 auto; display:flex; align-items:center; gap:14px; flex-wrap:wrap;
+  padding:6px 18px; background:var(--surface-1); border-top:1px solid var(--border);
+  font-size:11.5px; color:var(--muted);
+}
+.status .spacer{flex:1}
+.status b{color:var(--ink-2); font-weight:600}
+
+/* ---------- 全屏拖入遮罩（与阅读器同款） ---------- */
+#dropMask{
+  position:fixed; inset:0; z-index:90; display:none; place-items:center;
+  background:color-mix(in srgb, var(--page) 82%, transparent); backdrop-filter:blur(2px);
+}
+#dropMask.on{display:grid}
+#dropMask .dm-box{
+  border:2px dashed var(--n-mech); border-radius:16px; padding:38px 54px;
+  text-align:center; background:var(--surface-1);
+}
+#dropMask .dm-t{font-size:19px; font-weight:640; margin-top:10px}
+#dropMask .dm-s{font-size:12.5px; color:var(--muted); margin-top:6px}
+#dropMask .dm-i{font-size:30px; color:var(--n-mech); line-height:1}
+
+/* ---------- 入库进度卡（与阅读器的 #ingest 同款） ---------- */
+#imp{
+  position:fixed; right:18px; bottom:18px; z-index:95; width:360px; display:none;
+  background:var(--surface-1); border:1px solid var(--border); border-radius:12px;
+  box-shadow:0 10px 30px rgba(0,0,0,.18); overflow:hidden;
+}
+#imp.on{display:block}
+/* 进度卡是 fixed 在右下角的，正好压住最后几行的「操作」列——实测点不到「改名」。
+   面板开着时给列表补一段下内边距，最后一行就能滚到卡片上方去。 */
+body.imping #wrap{padding-bottom:200px}
+#imp .ih{
+  display:flex; align-items:center; gap:8px; padding:10px 12px;
+  border-bottom:1px solid var(--border); font-size:13px; font-weight:620;
+}
+#imp .ih button{
+  margin-left:auto; border:0; background:transparent; color:var(--muted);
+  font-size:16px; cursor:pointer; line-height:1;
+}
+#imp .ib{padding:10px 12px; font-size:12.5px; max-height:42vh; overflow:auto}
+#imp .st{display:flex; gap:8px; padding:3px 0; color:var(--ink-2)}
+#imp .st.run{color:var(--ink)}
+#imp .st.err{color:var(--rel-neg)}
+#imp .st .dt{color:var(--muted); margin-left:auto; font-size:11.5px; padding-left:8px}
+#imp .bar{height:3px; background:var(--grid); overflow:hidden}
+#imp .bar i{
+  display:block; height:100%; width:30%; background:var(--n-mech);
+  animation:impslide 1.1s ease-in-out infinite;
+}
+@keyframes impslide{0%{margin-left:-30%}100%{margin-left:100%}}
+#imp .lg{
+  margin-top:8px; padding-top:8px; border-top:1px dashed var(--border);
+  font-size:11.5px; color:var(--muted); max-height:120px; overflow:auto; white-space:pre-wrap;
+}
+#imp .err{
+  margin-top:8px; padding:8px 10px; border-radius:8px; font-size:12px; line-height:1.7;
+  background:color-mix(in srgb, var(--rel-neg) 12%, transparent); color:var(--rel-neg);
+}
+
+/* ---------- 删除确认（破坏性操作，故意做得比别的弹窗重） ---------- */
+#mdl{
+  position:fixed; inset:0; z-index:97; background:rgba(0,0,0,.42);
+  display:none; align-items:center; justify-content:center; padding:28px;
+}
+#mdl.on{display:flex}
+#mdl .mbox{
+  width:min(560px,100%); background:var(--surface-1); border:1px solid var(--border);
+  border-radius:14px; box-shadow:0 18px 50px rgba(0,0,0,.32); overflow:hidden;
+}
+#mdl .mt{
+  padding:14px 18px 0; font-size:16px; font-weight:660;
+  display:flex; align-items:center; gap:8px;
+}
+#mdl .mt .warn{color:var(--rel-neg)}
+#mdl .ms{padding:8px 18px 0; font-size:13px; color:var(--ink-2); word-break:break-word}
+#mdl .mw{
+  margin:12px 18px 0; padding:11px 14px 11px 30px; border-radius:10px;
+  background:color-mix(in srgb, var(--rel-neg) 9%, transparent);
+  font-size:12.5px; color:var(--ink-2); line-height:1.85;
+}
+#mdl .mw code{
+  font-family:ui-monospace,Consolas,monospace; font-size:11.5px;
+  background:var(--grid); padding:1px 5px; border-radius:5px; color:var(--ink);
+}
+#mdl .mw b{color:var(--rel-neg)}
+#mdl .mact{display:flex; gap:10px; justify-content:flex-end; padding:16px 18px}
+
+/* ---------- toast（与阅读器同款） ---------- */
+#toast{
+  position:fixed; left:50%; top:16px; transform:translateX(-50%); z-index:99;
+  background:var(--surface-1); border:1px solid var(--border); border-radius:10px;
+  padding:8px 14px; font-size:12.5px; color:var(--ink-2); display:none;
+  box-shadow:0 6px 20px rgba(0,0,0,.10);
+}
+#toast.show{display:block}
+
+/* 窄屏：页数/入库时间两列让位给标题 */
+@media (max-width:900px){
+  :root{ --cols: 26px minmax(0,1fr) 52px 78px 118px; }
+  .c-pages,.c-date{display:none}
+}
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <a class="tbtn" id="back" href="/">← 返回阅读器</a>
+  <h1>论文库</h1>
+  <span class="badge" id="cntTop">—</span>
+  <span class="sub" id="curTip"></span>
+  <span class="spacer"></span>
+  <button class="tbtn primary" id="btnImport">＋ 导入论文</button>
+  <button class="tbtn" id="btnTheme">切换主题</button>
+</div>
+
+<div class="bar">
+  <div class="search">
+    <span class="ic">⌕</span>
+    <input id="q" type="search" placeholder="搜索标题 / 作者 / id…（按 / 聚焦）" autocomplete="off">
+    <button class="clr" id="qClr" title="清空">×</button>
+  </div>
+  <span class="lbl">排序</span>
+  <select id="sortSel">
+    <option value="custom">自定义顺序（可拖动）</option>
+    <option value="added-desc">入库时间：新 → 旧</option>
+    <option value="added-asc">入库时间：旧 → 新</option>
+    <option value="title-asc">标题：A → Z</option>
+    <option value="title-desc">标题：Z → A</option>
+    <option value="sec-desc">节数：多 → 少</option>
+    <option value="sec-asc">节数：少 → 多</option>
+    <option value="page-desc">页数：多 → 少</option>
+  </select>
+  <button id="customChip" style="display:none" title="回到可拖动的自定义顺序">↩ 回到自定义顺序</button>
+  <span class="hint" id="dragHint"></span>
+</div>
+
+<div id="wrap">
+  <div class="thead" id="thead">
+    <div class="h"></div>
+    <div class="h s" data-sort="title" title="按标题排序">标题<span class="ar"></span></div>
+    <div class="h s" data-sort="sec" title="按节数排序" style="text-align:right">节数<span class="ar"></span></div>
+    <div class="h s c-pages" data-sort="page" title="按页数排序" style="text-align:right">页数<span class="ar"></span></div>
+    <div class="h s c-date" data-sort="added" title="按入库时间排序" style="text-align:right">入库时间<span class="ar"></span></div>
+    <div class="h" style="text-align:right">状态</div>
+    <div class="h" style="text-align:right">操作</div>
+  </div>
+  <div id="list"></div>
+</div>
+
+<div class="status">
+  <span id="stCnt">读取中…</span>
+  <span class="spacer"></span>
+  <span id="stSort"></span>
+  <span id="stPath"></span>
+</div>
+
+<div id="dropMask"><div class="dm-box">
+  <div class="dm-i">⤓</div>
+  <div class="dm-t">松手就导入</div>
+  <div class="dm-s">收 PDF 和 .ano 项目文件 · PDF 会自动分节，之后可以一键分析</div>
+</div></div>
+
+<div id="imp">
+  <div class="bar" id="impBar" style="display:none"><i></i></div>
+  <div class="ih"><span id="impTitle">正在入库…</span><button id="impClose" title="收起">×</button></div>
+  <div class="ib">
+    <div id="impSteps"></div>
+    <div class="lg" id="impLog" style="display:none"></div>
+    <div class="err" id="impErr" style="display:none"></div>
+  </div>
+</div>
+
+<div id="mdl">
+  <div class="mbox">
+    <div class="mt"><span class="warn">⚠</span> 删除这篇论文？</div>
+    <div class="ms" id="mdlName"></div>
+    <ul class="mw">
+      <li>这一篇的<b>全部内容</b>都会没：论文原文、分节结果、思想图、标注、
+          <b>包括你手工改过的部分</b></li>
+      <li><b>没有回收站，删掉就找不回来</b>（想留着的话，先把它的
+          <code>.ano</code> 文件复制一份到别处）</li>
+      <li>正在读它的窗口、以及指向它的旧链接会失效</li>
+    </ul>
+    <div class="mact">
+      <button class="tbtn" id="mdlNo">取消</button>
+      <button class="tbtn danger" id="mdlYes">永久删除</button>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<input type="file" id="file" accept="application/pdf,.pdf,.ano" multiple hidden>
+
+<script>
+/* ==========================================================================
+   PaperIDE · 论文库管理页（P5）
+   阅读器（index.html）里那个「论文库」弹窗只够切论文；这一页是**真正的库**：
+   列表 / 导入 / 改名 / 拖动排序 / 删除 / 检索 / 排序 / 进入阅读。
+
+   数据来源：
+     GET  /api/library              列表（比 /api/papers 多 authors，少一次 N 次 meta 请求）
+     POST /api/papers?filename=     导入（与阅读器同一条路，返回 job id）
+     POST /api/papers/<id>/rename   改名（写 meta.json + index.json）
+     POST /api/papers/order         拖动排序的落盘口
+     DELETE /api/papers/<id>        删除（服务端四道闸校验，见 server.py）
+
+   纯 vanilla、单文件、无构建、无外部依赖——和 index.html 一个路子。
+   ========================================================================== */
+(function(){
+'use strict';
+
+const $ = s => document.querySelector(s);
+const list = $('#list'), wrap = $('#wrap'), qEl = $('#q'), sortSel = $('#sortSel');
+
+const S = {
+  all: [],          // 服务端返回的原始顺序（= 自定义顺序）
+  sort: 'custom',
+  q: '',
+  cur: new URLSearchParams(location.search).get('paper') || '',   // 从哪篇论文点进来的
+  dragging: false,
+};
+
+function esc(s){
+  return String(s == null ? '' : s)
+    .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+    .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+}
+function toast(msg){
+  const t = $('#toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(() => t.classList.remove('show'), 2400);
+}
+/* 2026-09-18 00:36:44 → 09-18 00:36（不是今年的才补上年份，列表里年份最占地方） */
+function fmtDate(s){
+  const m = /^(\d{4})-(\d{2})-(\d{2})[ T](\d{2}):(\d{2})/.exec(s || '');
+  if (!m) return s || '—';
+  const nowY = String(new Date().getFullYear());
+  return (m[1] === nowY ? '' : m[1] + '-') + m[2] + '-' + m[3] + ' ' + m[4] + ':' + m[5];
+}
+
+/* ---------------------------------------------------------------- 拉数据 */
+async function load(keepFlash){
+  let d;
+  try {
+    const r = await fetch('/api/library', { cache: 'no-store' });
+    d = await r.json();
+  } catch (e) {
+    list.innerHTML = '';
+    wrap.insertAdjacentHTML('beforeend',
+      '<div class="state"><div class="big">⚠</div><div class="t">读不到论文库</div>' +
+      '<div class="s">' + esc(String(e)) + '<br>浏览器控制台会给出更具体的原因。</div>' +
+      '<div class="btns"><button class="tbtn" id="retry">重试</button></div></div>');
+    const b = $('#retry'); if (b) b.onclick = () => location.reload();
+    return;
+  }
+  S.all = d.papers || [];
+  render(keepFlash);          // ⚠ 别写成 render()——新导入的行靠这个参数闪绿，
+}                             //   漏传的话它就静静躺在列表最后一行，用户找不着
+
+/* ---------------------------------------------------------------- 检索 + 排序 */
+/* 检索：空格分隔的多个词**都要命中**（AND），字段 = 标题 / 作者 / id。
+   为什么要 AND 而不是整串匹配：库里标题都是英文长句，"car macrophage" 这种
+   两词组合是最自然的用法，整串匹配一个都搜不到。 */
+function hit(p, q){
+  if (!q) return true;
+  const hay = (p.title + ' \0 ' + (p.authors || '') + ' \0 ' + p.id).toLowerCase();
+  return q.split(/\s+/).filter(Boolean).every(w => hay.indexOf(w) >= 0);
+}
+
+const CMP = {
+  'title-asc':  (a,b) => (a.title||'').toLowerCase().localeCompare((b.title||'').toLowerCase()),
+  'title-desc': (a,b) => (b.title||'').toLowerCase().localeCompare((a.title||'').toLowerCase()),
+  'added-asc':  (a,b) => String(a.addedAt||'').localeCompare(String(b.addedAt||'')),
+  'added-desc': (a,b) => String(b.addedAt||'').localeCompare(String(a.addedAt||'')),
+  'sec-asc':    (a,b) => (a.sections||0) - (b.sections||0),
+  'sec-desc':   (a,b) => (b.sections||0) - (a.sections||0),
+  'page-desc':  (a,b) => (b.pdfPages||0) - (a.pdfPages||0),
+};
+
+function view(){
+  const q = S.q.trim().toLowerCase();
+  const out = S.all.filter(p => hit(p, q));
+  if (S.sort !== 'custom' && CMP[S.sort]) out.sort(CMP[S.sort]);
+  return out;
+}
+
+/* 能不能拖：只有"自定义顺序 + 没在筛选"时才允许。
+   ⚠ 筛选中禁止拖动不是懒政：拖动只能重排**看得见的行**，而服务端的落盘口是按 id 列表
+   重排整个库的，两者一叠加，被筛掉的那些行位置会被搅乱。宁可不给拖。 */
+const canDrag = () => S.sort === 'custom' && !S.q.trim();
+
+/* ---------------------------------------------------------------- 渲染 */
+function render(flashId){
+  const rows = view();
+  const total = S.all.length, shown = rows.length, analyzed = S.all.filter(p => p.analyzed).length;
+
+  $('#cntTop').textContent = total + ' 篇';
+  $('#stCnt').innerHTML = S.q.trim()
+    ? '共 <b>' + total + '</b> 篇 · 筛出 <b>' + shown + '</b> 篇'
+    : '共 <b>' + total + '</b> 篇 · 已分析 <b>' + analyzed + '</b> 篇';
+  $('#stSort').textContent = '排序：' + (sortSel.options[sortSel.selectedIndex] || {}).text;
+  $('#dragHint').textContent = canDrag()
+    ? (total > 1 ? '按住任意一行往上下拖，可调整顺序（会记住）' : '')
+    : (total > 1 ? '当前不可拖动：切回自定义顺序、并清空搜索' : '');
+
+  // 表头排序箭头
+  document.querySelectorAll('.thead .h.s').forEach(h => {
+    const k = h.dataset.sort, on = S.sort.startsWith(k + '-');
+    h.classList.toggle('on', on);
+    h.querySelector('.ar').textContent = on ? (S.sort.endsWith('-asc') ? '▲' : '▼') : '';
+  });
+
+  if (!total){
+    list.innerHTML =
+      '<div class="dropzone" id="dz">' +
+        '<div class="big" style="font-size:34px;line-height:1;color:var(--n-mech);opacity:.85">⤓</div>' +
+        '<div class="t" style="font-size:17px;font-weight:640;margin-top:12px">论文库还是空的</div>' +
+        '<div class="s" style="font-size:12.5px;color:var(--muted);margin-top:7px;line-height:1.8">' +
+          '把 PDF 拖到这一页的任意位置就能入库（自动读标题、自动分节）。<br>' +
+          '入库后点「一键分析」出思想图、标注层和翻译缓存。' +
+        '</div>' +
+        '<div class="btns" style="margin-top:18px;display:flex;gap:10px;justify-content:center">' +
+          '<button class="tbtn primary" id="dzPick">选择 PDF 文件…</button>' +
+          '<a class="tbtn" href="/">先去阅读器</a>' +
+        '</div>' +
+      '</div>';
+    const p = $('#dzPick'); if (p) p.onclick = () => $('#file').click();
+    return;
+  }
+  if (!shown){
+    list.innerHTML =
+      '<div class="state"><div class="big">⌕</div><div class="t">没有匹配的论文</div>' +
+      '<div class="s">「' + esc(S.q.trim()) + '」在标题 / 作者 / id 里都没有命中。</div>' +
+      '<div class="btns"><button class="tbtn" id="clr2">清空搜索</button></div></div>';
+    const b = $('#clr2'); if (b) b.onclick = () => { qEl.value=''; S.q=''; render(); qEl.focus(); };
+    return;
+  }
+
+  const q = S.q.trim().toLowerCase();
+  const drag = canDrag();
+  list.innerHTML = rows.map(p => {
+    const t2 = [p.authors || '', p.id].filter(Boolean).join(' · ');
+    return '<div class="row' + (p.id === S.cur ? ' cur' : '') + '" data-id="' + esc(p.id) + '">' +
+      '<div class="grip' + (drag && rows.length > 1 ? '' : ' off') + '" title="' +
+        (drag && rows.length > 1 ? '按住拖动排序' : '切回自定义顺序后才能拖动') + '">⠿</div>' +
+      '<div class="ttl">' +
+        '<div class="t1">' + (p.id === S.cur ? '<span class="curTag">● 正在阅读</span>' : '') +
+          mark(p.title || p.id, q) + '</div>' +
+        (t2 ? '<div class="t2">' + mark(t2, q) + '</div>' : '') +
+      '</div>' +
+      '<div class="c dim">' + (p.sections || 0) + '</div>' +
+      '<div class="c dim c-pages">' + (p.pdfPages || '—') + '</div>' +
+      '<div class="c dim c-date">' + esc(fmtDate(p.addedAt)) + '</div>' +
+      '<div class="c"><span class="st ' + (p.analyzed ? 'ok' : 'no') + '">' +
+        (p.analyzed ? '已分析' : '待分析') + '</span></div>' +
+      '<div class="acts">' +
+        '<button class="mini" data-act="open" title="在阅读器里打开">阅读</button>' +
+        '<button class="mini" data-act="ren" title="改标题">改名</button>' +
+        '<button class="mini del" data-act="del" title="删除（不可恢复）">删除</button>' +
+      '</div>' +
+    '</div>';
+  }).join('');
+
+  if (flashId){
+    const r = list.querySelector('.row[data-id="' + CSS.escape(flashId) + '"]');
+    if (r){ r.classList.add('flash'); r.scrollIntoView({ block: 'nearest' }); }
+  }
+}
+/* 命中片段高亮：把每个搜索词在文本里包一层 <mark>（先转义再插标签，顺序不能反） */
+function mark(text, q){
+  const safe = esc(text);
+  if (!q) return safe;
+  const words = q.split(/\s+/).filter(Boolean)
+    .map(w => w.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'))
+    .filter(w => w.length >= 1);
+  if (!words.length) return safe;
+  try {
+    return safe.replace(new RegExp('(' + words.join('|') + ')', 'gi'), '<mark>$1</mark>');
+  } catch (e){ return safe; }
+}
+
+/* ---------------------------------------------------------------- 改名 */
+function startRename(row){
+  const p = S.all.find(x => x.id === row.dataset.id);
+  if (!p) return;
+  const box = row.querySelector('.ttl .t1');
+  if (!box || box.querySelector('input')) return;
+  const old = p.title || p.id;
+  box.innerHTML = '<input class="ren" type="text" value="' + esc(old) + '">';
+  const inp = box.querySelector('input');
+  inp.focus(); inp.select();
+  let done = false;
+  const finish = async (save) => {
+    if (done) return; done = true;
+    const v = inp.value.trim();
+    if (!save || !v || v === old){ render(); return; }
+    box.innerHTML = esc(v) + ' <span style="color:var(--muted);font-weight:400">保存中…</span>';
+    try {
+      const r = await fetch('/api/papers/' + encodeURIComponent(p.id) + '/rename', {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: v })
+      });
+      const j = await r.json();
+      if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+      p.title = j.title;
+      toast('已改名：' + j.title);
+    } catch (e){
+      toast('改名失败：' + e);
+    }
+    render();
+  };
+  inp.onkeydown = e => {
+    e.stopPropagation();
+    if (e.key === 'Enter'){ e.preventDefault(); finish(true); }
+    if (e.key === 'Escape'){ e.preventDefault(); finish(false); }
+  };
+  inp.onblur = () => finish(true);
+  inp.onclick = e => e.stopPropagation();
+}
+
+/* ---------------------------------------------------------------- 删除 */
+let pendingDel = null;
+function askDelete(p){
+  pendingDel = p;
+  $('#mdlName').innerHTML = '<b>' + esc(p.title || p.id) + '</b>' +
+    '<div style="color:var(--muted);font-size:12px;margin-top:2px">' +
+    esc(p.id) + ' · ' + (p.sections || 0) + ' 节 · ' + (p.pdfPages || '?') + ' 页 · ' +
+    (p.analyzed ? '已分析' : '待分析') + '</div>';
+  $('#mdlDir').textContent = 'papers/' + p.id + '/';
+  $('#mdl').classList.add('on');
+  $('#mdlNo').focus();
+}
+function closeMdl(){ $('#mdl').classList.remove('on'); pendingDel = null; }
+async function doDelete(){
+  const p = pendingDel;
+  if (!p) return;
+  const btn = $('#mdlYes');
+  btn.disabled = true; btn.textContent = '删除中…';
+  try {
+    const r = await fetch('/api/papers/' + encodeURIComponent(p.id), { method: 'DELETE' });
+    const j = await r.json();
+    if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+    closeMdl();
+    S.all = S.all.filter(x => x.id !== p.id);
+    render();
+    toast('已删除「' + (p.title || p.id) + '」' +
+          (j.bytes ? '（释放 ' + (j.bytes / 1048576).toFixed(1) + ' MB / ' + j.files + ' 个文件）' : ''));
+  } catch (e){
+    btn.disabled = false; btn.textContent = '永久删除';
+    toast('删除失败：' + e);
+  }
+}
+
+/* ---------------------------------------------------------------- 排序落盘 */
+async function saveOrder(order){
+  try {
+    const r = await fetch('/api/papers/order', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ order })
+    });
+    const j = await r.json();
+    if (!r.ok || j.error) throw new Error(j.error || ('HTTP ' + r.status));
+    if (j.ignored && j.ignored.length) toast('有 ' + j.ignored.length + ' 个 id 不在库里，已跳过');
+  } catch (e){
+    toast('顺序没存上：' + e);
+    load();                      // 存不上就把界面拉回服务端的真实顺序，别让两边不一致
+  }
+}
+
+/* ---------------------------------------------------------------- 拖动排序
+   用**指针事件**手写，不用 HTML5 drag&drop：后者的 dragstart/dragover 在自动化测试里
+   不好稳定触发，而且默认拖影在列表里观感很差。这里直接搬 DOM 节点，实时看到行让位。 */
+function bindDrag(){
+  let d = null;
+  list.addEventListener('mousedown', e => {
+    if (e.button !== 0 || !canDrag()) return;
+    const row = e.target.closest('.row[data-id]');
+    if (!row || e.target.closest('button, input, a')) return;
+    d = { row, y0: e.clientY, x0: e.clientX, active: false };
+  });
+  addEventListener('mousemove', e => {
+    if (!d) return;
+    if (!d.active){
+      if (Math.abs(e.clientY - d.y0) < 5 && Math.abs(e.clientX - d.x0) < 5) return;
+      d.active = true;
+      d.row.classList.add('dragging');
+      document.body.classList.add('nosel');
+      suppressClick = true;
+    }
+    e.preventDefault();
+    const others = [...list.querySelectorAll('.row[data-id]')].filter(r => r !== d.row);
+    let ref = null;
+    for (const r of others){
+      const b = r.getBoundingClientRect();
+      if (e.clientY < b.top + b.height / 2){ ref = r; break; }
+    }
+    if (ref){ if (ref.previousElementSibling !== d.row) list.insertBefore(d.row, ref); }
+    else if (list.lastElementChild !== d.row) list.appendChild(d.row);
+    // 贴边自动滚（拖到列表上下缘时整页跟着走）
+    const b = wrap.getBoundingClientRect(), M = 54;
+    if (e.clientY < b.top + M) wrap.scrollTop -= 14;
+    else if (e.clientY > b.bottom - M) wrap.scrollTop += 14;
+  });
+  addEventListener('mouseup', async () => {
+    if (!d) return;
+    const cur = d; d = null;
+    if (!cur.active) return;                       // 没越过阈值 → 那是普通点击，交给 click
+    cur.row.classList.remove('dragging');
+    document.body.classList.remove('nosel');
+    const order = [...list.querySelectorAll('.row[data-id]')].map(r => r.dataset.id);
+    const by = {}; S.all.forEach(p => by[p.id] = p);
+    S.all = order.map(id => by[id]).filter(Boolean);
+    await saveOrder(order);
+    render();
+    toast('顺序已保存');
+  });
+}
+let suppressClick = false;
+
+/* ---------------------------------------------------------------- 导入
+   与阅读器同一条路：POST /api/papers（body 是 PDF 二进制）→ 轮询 /api/jobs/<id>。
+   差别只在**不跳走**——在库管理页导入完应该留在库里看见新行，而不是被弹去阅读器。 */
+function bindImport(){
+  const mask = $('#dropMask'), box = $('#imp');
+  let depth = 0;
+  const hasFile = e => e.dataTransfer && Array.from(e.dataTransfer.types || []).includes('Files');
+
+  addEventListener('dragenter', e => {
+    if (!hasFile(e)) return;
+    e.preventDefault(); depth++; mask.classList.add('on'); $('#dz') && $('#dz').classList.add('hot');
+  });
+  addEventListener('dragover', e => {
+    if (!hasFile(e)) return;
+    e.preventDefault(); e.dataTransfer.dropEffect = 'copy';
+  });
+  addEventListener('dragleave', e => {
+    if (!hasFile(e)) return;
+    depth = Math.max(0, depth - 1);
+    if (!depth){ mask.classList.remove('on'); $('#dz') && $('#dz').classList.remove('hot'); }
+  });
+  addEventListener('drop', e => {
+    if (!hasFile(e)) return;
+    e.preventDefault(); depth = 0;
+    mask.classList.remove('on'); $('#dz') && $('#dz').classList.remove('hot');
+    const fs = Array.from(e.dataTransfer.files || []);
+    if (fs.length) ingestAll(fs);
+  });
+
+  $('#btnImport').onclick = () => $('#file').click();
+  $('#file').onchange = e => {
+    const fs = Array.from(e.target.files || []);
+    e.target.value = '';                       // 同一个文件再选一次也要能触发
+    if (fs.length) ingestAll(fs);
+  };
+  $('#impClose').onclick = () => hideImp();
+  function hideImp(){ box.classList.remove('on'); document.body.classList.remove('imping'); }
+  function showImp(){ box.classList.add('on'); document.body.classList.add('imping'); }
+
+  async function ingestAll(files){
+    const pdfs = files.filter(f => { const n = f.name.toLowerCase();
+                                     return n.endsWith('.pdf') || n.endsWith('.ano'); });   // .ano 也是 PDF
+    if (!pdfs.length) return toast('只收 PDF 文件');
+    if (files.length !== pdfs.length) toast('忽略了 ' + (files.length - pdfs.length) + ' 个非 PDF 文件');
+    showImp();
+    $('#impErr').style.display = 'none';
+    const done = [];
+    for (let i = 0; i < pdfs.length; i++){
+      const f = pdfs[i];
+      const tag = pdfs.length > 1 ? '（' + (i + 1) + '/' + pdfs.length + '）' : '';
+      const ok = await ingestOne(f, tag);
+      if (ok) done.push(ok);
+      else break;                              // 失败就停，别连着一串报错
+    }
+    if (done.length){
+      // 新导入的行会闪一下（绿色高亮）——不然它落在列表底部，用户不知道哪条是刚进来的
+      await load(done[done.length - 1].id);
+      toast(done.length > 1 ? ('已入库 ' + done.length + ' 篇')
+                            : ('已入库：' + (done[0].detail || done[0].id)));
+      // 成功了就自己收起来（结论已经由 toast 报过一遍）——一是不挡列表，
+      // 二是它压着最后几行的操作列，留着反而碍事。失败时不收（fail 那条路）。
+      setTimeout(hideImp, 3500);
+    }
+  }
+
+  async function ingestOne(file, tag){
+    $('#impTitle').textContent = '正在入库' + tag + '：' + file.name;
+    $('#impSteps').innerHTML = ''; $('#impLog').style.display = 'none';
+    $('#impLog').textContent = '';
+    $('#impBar').style.display = 'block';
+    let r;
+    try {
+      r = await (await fetch('/api/papers?filename=' + encodeURIComponent(file.name), {
+        method: 'POST', body: file, headers: { 'Content-Type': 'application/pdf' }
+      })).json();
+    } catch (e){ return fail('上传失败：' + e); }
+    if (r.error) return fail(r.error);
+    // ★ 后端**没给 job** = 活已经干完了，没有东西要轮询。
+    //   带分析成果的 `.ano` 走这条：数据都在包里，解包就是全部工作，秒级完成。
+    //   ⚠ 以前这里不看就直接轮询 `r.job`，而它是 undefined →
+    //     `/api/jobs/undefined` → 404（回的是 HTML，`.json()` 抛）→ continue
+    //     → **空转 600×500ms = 5 分钟**，面板上一直挂着"正在分节：paper.ano"。
+    //     这就是主人 2026-09-19 看到的现象（问题 3）。
+    if (!r.job){ $('#impBar').style.display = 'none';
+      return { id: r.id, detail: r.note || '项目文件里的成果直接展开，没有重新分析' }; }
+    $('#impTitle').textContent = (r.ano ? '正在展开项目文件' : '正在分节') + tag + '：' + file.name;
+    for (let i = 0; i < 600; i++){             // 最多等 5 分钟
+      await new Promise(s => setTimeout(s, 500));
+      let j;
+      try { j = await (await fetch('/api/jobs/' + r.job)).json(); } catch (e){ continue; }
+      steps(j);
+      if (j.state === 'done'){
+        $('#impBar').style.display = 'none';
+        const last = (j.steps || []).slice(-1)[0] || {};
+        return { id: r.id, detail: last.detail || '' };
+      }
+      if (j.state === 'failed'){ return fail(j.error || '分节失败'); }
+    }
+    return fail('等太久了，去 papers/ 目录看看有没有落盘');
+  }
+  function steps(j){
+    $('#impSteps').innerHTML = (j.steps || []).map(s => {
+      const ic = s.state === 'done' ? '✓' : s.state === 'running' ? '◌' : s.state === 'failed' ? '✗' : '·';
+      return '<div class="st ' + (s.state === 'running' ? 'run' : s.state === 'failed' ? 'err' : '') + '">' +
+             '<span>' + ic + '</span><span>' + esc(s.name) + '</span>' +
+             (s.detail ? '<span class="dt">' + esc(String(s.detail).slice(0, 40)) + '</span>' : '') + '</div>';
+    }).join('');
+    const lg = $('#impLog'), lines = (j.log || []).slice(-24);
+    lg.style.display = lines.length ? '' : 'none';
+    lg.textContent = lines.join('\n');
+    lg.scrollTop = lg.scrollHeight;
+  }
+  function fail(msg){
+    $('#impBar').style.display = 'none';
+    $('#impTitle').textContent = '没能完成';
+    const e = $('#impErr');
+    e.style.display = 'block'; e.textContent = msg;
+    showImp();                       // 失败不自动收：错误得留在屏幕上让人看见
+    return null;
+  }
+}
+
+/* ---------------------------------------------------------------- 交互绑定 */
+function bindUI(){
+  // 行点击：阅读 / 改名 / 删除（按钮优先，别让点按钮顺带把论文打开）
+  list.addEventListener('click', e => {
+    const row = e.target.closest('.row[data-id]');
+    if (!row) return;
+    if (suppressClick) return;
+    const id = row.dataset.id;
+    const p = S.all.find(x => x.id === id);
+    if (!p) return;
+    const act = e.target.closest('button[data-act]');
+    if (act){
+      if (act.dataset.act === 'open') location.href = '/?paper=' + encodeURIComponent(id);
+      else if (act.dataset.act === 'ren') startRename(row);
+      else if (act.dataset.act === 'del') askDelete(p);
+      return;
+    }
+    if (e.target.closest('input, a')) return;
+    location.href = '/?paper=' + encodeURIComponent(id);
+  });
+
+  // 检索
+  let t = null;
+  qEl.addEventListener('input', () => {
+    $('#qClr').classList.toggle('on', !!qEl.value);
+    clearTimeout(t);
+    t = setTimeout(() => { S.q = qEl.value; render(); }, 60);   // 60ms：够跟手，又不至于每敲一键全表重排
+  });
+  $('#qClr').onclick = () => { qEl.value = ''; S.q = ''; $('#qClr').classList.remove('on'); render(); qEl.focus(); };
+
+  // 排序：下拉 + 表头点击，两处控同一个 S.sort
+  sortSel.onchange = () => { S.sort = sortSel.value; render(); };
+  $('#customChip').onclick = () => { S.sort = 'custom'; syncSortUI(); render(); };
+  document.querySelectorAll('.thead .h.s').forEach(h => {
+    h.onclick = () => {
+      const k = h.dataset.sort;
+      const asc = (k === 'title');
+      S.sort = (S.sort === k + '-asc') ? k + '-desc'
+              : (S.sort === k + '-desc') ? k + '-asc'
+              : (asc ? k + '-asc' : k + '-desc');
+      syncSortUI(); render();
+    };
+  });
+
+  // 删除确认
+  $('#mdlNo').onclick = closeMdl;
+  $('#mdlYes').onclick = doDelete;
+  $('#mdl').addEventListener('click', e => { if (e.target.id === 'mdl') closeMdl(); });
+
+  // 主题：与阅读器完全同一套三态逻辑（跟随系统 → 深 → 浅）
+  document.getElementById('btnTheme').onclick = () => {
+    const cur = document.documentElement.getAttribute('data-theme');
+    const next = cur === 'dark' ? 'light' : cur === 'light' ? 'dark'
+      : (matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark');
+    document.documentElement.setAttribute('data-theme', next);
+  };
+
+  // 快捷键：/ 聚焦搜索、Esc 关弹窗/清搜索
+  addEventListener('keydown', e => {
+    if (e.key === '/' && !/^(INPUT|TEXTAREA)$/.test(document.activeElement.tagName)){
+      e.preventDefault(); qEl.focus(); qEl.select();
+    }
+    if (e.key === 'Escape'){
+      if ($('#mdl').classList.contains('on')) return closeMdl();
+      if (document.activeElement === qEl && qEl.value){ qEl.value=''; S.q=''; $('#qClr').classList.remove('on'); render(); }
+    }
+  });
+}
+function syncSortUI(){
+  sortSel.value = S.sort;
+  $('#customChip').style.display = S.sort === 'custom' ? 'none' : 'inline-block';
+}
+
+/* ---------------------------------------------------------------- 启动 */
+async function main(){
+  // 从哪篇点进来的：返回按钮回那一篇，并把它标成「当前」
+  if (S.cur){
+    $('#back').href = '/?paper=' + encodeURIComponent(S.cur);
+    $('#curTip').textContent = '当前读的是 ' + S.cur;
+  }
+  $('#file').setAttribute('accept', 'application/pdf,.pdf,.ano');
+  syncSortUI();
+  bindUI();
+  bindDrag();
+  bindImport();
+  await load();
+}
+main();
+})();
+</script>
+</body>
+</html>

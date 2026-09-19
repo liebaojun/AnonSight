@@ -1,0 +1,28 @@
+# ---------- 用户数据（绝不进版本库）----------
+# 你的论文、AI 分析成果、翻译缓存、API Key —— 全都落在仓库根下，
+# 是**你自己的东西**，不该跟着仓库一起走。
+papers/
+.keys.json
+
+# 注：`paperide.config.json` **故意不忽略** —— 它是出厂默认配置，要跟着仓库发。
+# 你在界面上换了适配器之后它会被本地改动，不想提交就别 `git add` 它。
+
+# ---------- 打包产物 ----------
+packaging/build/
+packaging/dist/
+packaging/installer/
+
+# ---------- Python ----------
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+
+# ---------- 编辑器 / 系统 ----------
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+*.bak
+*.bak2
