@@ -17,6 +17,7 @@
    改成 onedir 之后它第一步就 `找不到 AnonSight.exe` 直接退出 ——
    "打完必做的第一步"就这么静默失效了。**工具本身也会过期。**
 """
+import json
 import os
 import sys
 
@@ -116,9 +117,18 @@ def main():
     try:                                   # 开发者的 key（从本机取，只比对前缀，不打印全文）
         sys.path.insert(0, os.path.dirname(HERE))
         from core import adapters
-        k = adapters.load_key('deepseek')
-        if k and len(k) > 12:
-            targets.append((k[:12].encode(), '开发者的 DeepSeek API Key'))
+        # ★ 2026-09-20：key **不再只有 deepseek 一个槽**了 —— 通用适配器之后每家服务
+        #   一个槽（deepseek / kimi / zhipu / …）。只盯 deepseek 的话，开发机换过别家
+        #   key 再打包，漏出去的就是没被盯的那一个。所以**把 .keys.json 里所有 key
+        #   全当靶子**（依然只比对前 12 字节，不打印全文）。
+        try:
+            _all = json.load(open(adapters.KEYS, encoding='utf-8')) or {}
+        except Exception:
+            _all = {}
+        for _name, _v in _all.items():
+            _v = (_v or '').strip()
+            if len(_v) > 12:
+                targets.append((_v[:12].encode(), '开发者的 %s API Key' % _name))
     except Exception:
         pass
     targets += [

@@ -501,9 +501,11 @@
         <h3>AI 是可选的</h3>
         <ul>
           <li><b>不接 AI 也能当 <code>.ano</code> 阅读器用</b>：能看章节切分、思想图、标注和已有的译文；只是不能重跑「一键分析」、也不能对刚划的词做实时翻译</li>
-          <li><b>一键分析</b>需要一个本机 agent：默认走 <code>claude-code</code>（电脑里要装了 Claude Code；
-              装了 <a href="https://github.com/liebaojun/MakoCode">MakoCode</a> 的机器自带），也可改成 <code>deepseek</code> 直连 API</li>
-          <li><b>划词翻译</b>固定走 DeepSeek API：设置里填自己的 Key（存在本机、只发给 DeepSeek）</li>
+          <li><b>一键分析</b>要接一个模型：<strong>填「接口地址 + 模型名 + API Key」三样就能用</strong>，
+              任何 OpenAI 兼容的服务都行（DeepSeek / Kimi / 智谱 / OpenAI / 本地 Ollama…），
+              <b>不需要装 Claude Code 或任何别的东西</b></li>
+          <li>设置里有「常用服务」下拉：选中自动填好地址和模型名，贴个 Key、点「测试连接」当场验通</li>
+          <li><b>划词翻译</b>走同一个接口，不需要另配</li>
         </ul>
       </div>
       <div class="card">
@@ -537,20 +539,22 @@
 
     <div class="grid2" style="margin-top:18px">
       <div class="card">
-        <h3>AI 接口：目前只接了两条</h3>
+        <h3>AI 接口：通用的，接哪家都行</h3>
         <ul>
-          <li><b><code>claude-code</code>（默认）</b>：后台拉起本机的 <code>claude</code> 命令——所以<b>电脑里得有 Claude Code</b></li>
-          <li><b><code>deepseek</code></b>：直连 DeepSeek API，自填 Key</li>
-          <li>换后端要改 <code>paperide.config.json</code> 的 <code>adapter</code> 字段（界面上暂时没有开关）</li>
+          <li><b><code>openai</code>（默认）</b>：打任意 OpenAI 兼容的 <code>/chat/completions</code>——
+              <b>只要地址 + 模型名 + Key</b>，界面上就能改，不用动代码</li>
+          <li><b><code>claude-code</code></b>（可选）：后台拉起本机的 <code>claude</code> 命令，
+              给已经装了 Claude Code、想用它的额度的人</li>
+          <li>各家预设（DeepSeek / Kimi / 智谱 / OpenAI / Ollama）只是帮你把地址和模型名填好，
+              <b>不是白名单</b>——三个框都能自己改</li>
         </ul>
       </div>
       <div class="card">
-        <h3>欢迎加 agent —— 但是「增加」不是「替换」</h3>
+        <h3>欢迎加适配器 —— 但是「增加」不是「替换」</h3>
         <ul>
-          <li>用 Codex / DSH / Cursor / 别的什么 agent 的人，非常欢迎来加一条路</li>
+          <li>用 Codex / DSH / Cursor / 自建服务的人，非常欢迎来加一条路</li>
           <li><code>core/adapters.py</code> 里的 <code>ADAPTERS</code> <b>本来就是注册表</b>：加一个类 + 一行注册</li>
-          <li>请<b>保留 <code>claude-code</code></b>，做成并列关系——别把 Claude 那条换掉，
-              不然装了 CC 的人反而用不了了</li>
+          <li>请<b>保留现有的两条</b>，做成并列关系——别把它们换掉，不然已经配好的人会突然用不了</li>
         </ul>
       </div>
       <div class="card">

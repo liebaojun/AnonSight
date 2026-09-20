@@ -476,13 +476,19 @@ def code_version():
     for name, f in _WATCH_FILES.items():
         if os.path.exists(f):
             mods[name] = time.strftime('%H:%M:%S', time.localtime(os.path.getmtime(f)))
+    # ⚠ 这里以前是**自己拼 HERE/paperide.config.json** —— 打包后 HERE 在 `_internal`
+    #   （出厂那份），用户改过的那份在 exe 旁边，于是"改了配置但版本接口还是老值"。
+    #   统一问 adapters（它才知道该读哪份，见 core/adapters.py:config_path）。
+    try:
+        from core import adapters
+        st = adapters.state()
+        ad = st['engine'] if st['engine'] != 'openai' else '%s/%s' % (st['engine'], st['preset'])
+    except Exception:
+        ad = '?'
     return {'startedAt': time.strftime('%H:%M:%S', time.localtime(_STARTED)),
             'now': time.strftime('%H:%M:%S'),
             'moduleMtimes': mods,
-            'adapter': (json.load(open(os.path.join(HERE, 'paperide.config.json'),
-                                       encoding='utf-8')).get('adapter')
-                        if os.path.exists(os.path.join(HERE, 'paperide.config.json'))
-                        else 'claude-code')}
+            'adapter': ad}
 
 
 def skeleton(pid):
@@ -1002,21 +1008,12 @@ class Handler(SimpleHTTPRequestHandler):
 
         if path == '/api/version':
             return self._json(code_version())
-        # ★ 设置界面用：只关心"AI 有没有配 key"，**不回传 key 本身**
-        #   （没必要让它在网络上多走一趟；也给个打码提示让用户认出自己填的是哪个）
+        # ★ 设置界面用：接口地址 / 模型名 / 有没有 key，外加预设清单。
+        #   **绝不回传 key 本身**（没必要让它在网络上多走一趟），只给打码提示
+        #   让人认出自己填的是哪一个。
         if path == '/api/settings':
             from core import adapters
-            k = adapters.load_key('deepseek')
-            cfg = {}
-            try:
-                cfg = json.load(open(adapters.CONFIG, encoding='utf-8'))
-            except Exception:
-                pass
-            return self._json({
-                'adapter': cfg.get('adapter') or 'claude-code',
-                'hasKey': bool(k),
-                'keyHint': (k[:7] + '…' + k[-4:]) if len(k) > 14 else ('已配置' if k else ''),
-            })
+            return self._json(adapters.state())
         if path == '/api/papers':
             m = _load_manifest()
             for p in m['papers']:          # "分析过没有"按磁盘上的 graph.json 现算，别存（会漂移）
@@ -1126,17 +1123,49 @@ class Handler(SimpleHTTPRequestHandler):
         u = urlparse(self.path)
         path, q = u.path, parse_qs(u.query)
 
-        # 存 API Key（设置界面用）。传空值 = 清除。
-        if path == '/api/settings/apikey':
+        # 设置界面保存 AI 接口（2026-09-20 通用化）：地址 / 模型名 / Key 三样。
+        #   · `key` 留空 = **不改动**现有那个（界面上那个框故意不回填，留空是常态）；
+        #   · `clearKey: true` 才是真清空；
+        #   · `/api/settings/apikey` 是老前端的入口，一起认（同一个处理，只是不带别字段）。
+        if path in ('/api/settings', '/api/settings/apikey'):
             n = int(self.headers.get('Content-Length') or 0)
             try:
-                body = json.loads(self.rfile.read(n).decode('utf-8'))
+                body = json.loads(self.rfile.read(n).decode('utf-8')) if n else {}
             except Exception as e:
                 return self._json({'error': '不是合法 JSON: %s' % e}, 400)
             from core import adapters
-            v = adapters.save_key('deepseek', body.get('key') or '')
-            return self._json({'ok': True, 'hasKey': bool(v),
-                               'keyHint': (v[:7] + '…' + v[-4:]) if len(v) > 14 else ('已配置' if v else '')})
+            try:
+                if body.get('clearKey'):
+                    adapters.clear_key()
+                else:
+                    adapters.save_ai(preset=body.get('preset'),
+                                     base_url=body.get('base_url'),
+                                     model=body.get('model'),
+                                     key=body.get('key'))
+            except adapters.AIError as e:
+                return self._json({'error': str(e)}, 400)
+            return self._json(dict(adapters.state(), ok=True))
+
+        # 「测试连接」：真发一句话出去，把"地址 / Key / 模型名哪一样不对"当场问出来。
+        #   ★ 用**请求里带的**值测（可以"先测再存"），没带的才回落到已保存的配置。
+        if path == '/api/settings/test':
+            n = int(self.headers.get('Content-Length') or 0)
+            try:
+                body = json.loads(self.rfile.read(n).decode('utf-8')) if n else {}
+            except Exception as e:
+                return self._json({'error': '不是合法 JSON: %s' % e}, 400)
+            from core import adapters
+            # 这里**直接造通用适配器**（不经过 get_adapter）：测的就是设置面板管的那条路，
+            # 配置里就算写着 claude-code 也不该影响这个按钮测什么。
+            kw = {k: ((body.get(k) or '').strip() or None)
+                  for k in ('preset', 'base_url', 'model', 'key')}
+            try:
+                ok, msg = adapters.OpenAICompatAdapter(**kw).ping()
+            except adapters.AIError as e:
+                ok, msg = False, str(e)
+            except Exception as e:
+                ok, msg = False, '%s: %s' % (type(e).__name__, e)
+            return self._json({'ok': ok, 'message': msg})
 
         # 一键分析
         m = re.match(r'^/api/papers/([\w\-.]+)/analyze$', path)

@@ -80,7 +80,7 @@
 ### 方式一：下载安装包（推荐，什么都不用装）
 
 到 [**Releases**](../../releases) 下载 `AnonSight-0.1.0-Setup-preview.exe`，双击安装。
-装完不依赖 Python、不用开浏览器，双击即用。
+装完**不需要你电脑里有 Python**（解释器和全部依赖都打在包里了）、不用开浏览器，双击即用。
 
 > ⚠️ 安装包**没有代码签名**，第一次装会被 Windows SmartScreen 拦成「未知发布者」。
 > 点「更多信息 → 仍要运行」即可。
@@ -140,32 +140,46 @@ DOI: [10.1016/j.cell.2026.05.043](https://doi.org/10.1016/j.cell.2026.05.043) �
 
 ---
 
-## 🤖 AI 接口：现在支持什么
+## 🤖 AI 接口：接哪家都行
 
-平台**不绑定任何一家 AI**，但适配器目前**只写了两个**：
+平台的 AI 层是一个**通用的 OpenAI 兼容接口**——填三样东西就能用：
+
+| 填什么 | 长什么样 |
+|---|---|
+| 接口地址 | `https://api.deepseek.com/v1` |
+| 模型名 | `deepseek-chat` |
+| API Key | 你自己在服务商那边申请的 |
+
+顶栏「设置」→ 选一个「常用服务」（预置了 DeepSeek / Kimi / 智谱 GLM / OpenAI / 本地 Ollama），
+**地址和模型名自动填好**，贴上 Key → 点「测试连接」当场验证通不通 → 点「保存」。
+
+所以 **DeepSeek / Kimi / 智谱 / OpenAI / 本地 Ollama / 任何 OpenAI 兼容的服务**都能接，
+包括你自己在局域网里跑的那些（那种连 Key 都不用填）。
+
+> ✅ **不需要装 Claude Code，也不需要装任何别的东西。**
+> 早先的说明书写着"得先装 CC 或 MakoCode"——**那是错的**，这里更正：
+> 平台从来就是直连 API 干活的（作者的 11 篇分析全部是直连产出的，一篇都没走 CC）。
+
+### 两条路
 
 | 适配器 | 说明 |
 |---|---|
-| `claude-code`（默认） | 后台拉起本机的 `claude` 命令。**需要电脑上装了 [Claude Code](https://claude.com/claude-code)** |
-| `deepseek` | 直连 DeepSeek API，用户在设置里填自己的 Key（**翻译固定走这条**） |
+| `openai`（**默认**） | 打任意 OpenAI 兼容的 `/chat/completions`，**只要地址 + 模型名 + Key** |
+| `claude-code` | 后台拉起本机的 `claude` 命令。**给"本来就装了 Claude Code、想用它的额度"的人，可选** |
 
-所以想跑「一键分析」的话，**电脑里得有 Claude Code**。
-装了 [**MakoCode**](https://github.com/liebaojun/MakoCode) 的机器必然已经有 Claude Code——
-MakoCode 是作者做的另一个项目（自带完整 Galgame 界面的桌面 AI Agent），它本身不带 CC 而是依赖你装的那份，
-所以**装了 MakoCode 就能直接用本平台，不用额外配置**。
-
-换适配器：编辑 `paperide.config.json` 的 `adapter` 字段，或设环境变量 `PAPERIDE_ADAPTER`。
+换法：**推荐在设置界面里改**（有下拉和三个输入框）；也可以用配置文件 `paperide.config.json`
+的 `adapter` / `ai` 字段，或环境变量 `PAPERIDE_ADAPTER`。
 
 > 不接 AI 也能用：打开 `.ano`、看已有的章节分析、思想图、标注和译文都不受影响，
 > 只是不能重跑分析、也不能对刚划的词做实时翻译。
 
 ### 欢迎加适配器（**是「增加」，不是「替换」**）
 
-其他 agent 的用户（Codex / DSH / Cursor / 别的什么都行）非常欢迎来加一条路：
+其他 agent 或模型服务的用户（Codex / DSH / Cursor / 自建服务 / 别的什么都行）非常欢迎来加一条路：
 
-- `core/adapters.py` 里的 `ADAPTERS` **本来就是注册表**——加一个类 + 一行注册即可
-- 请**保留 `claude-code`**，做成 `claude-code + 你的 agent` 的并列关系，
-  而不是把 Claude 那条换掉——不然装了 CC 的人反而用不了了
+- `core/adapters.py` 里的 `ADAPTERS` **本来就是注册表**——加一个类 + 一行注册即可；
+  只是想加一家 OpenAI 兼容的服务，连代码都不用改（设置里直接填地址）
+- 请**保留现有的两条**，做成并列关系而不是替换——不然已经配好的人会突然用不了
 - 一个适配器只需要干三件事：把 prompt 喂进去 → 把 JSON 抠出来 → 交给校验器
 
 ---
@@ -209,7 +223,7 @@ python tools/regress_analyze.py       # 分析流水线回归（不花钱，用�
 | 边界 | 现状 |
 |---|---|
 | **测试样本偏科** | 绝大多数是生物医学论文；其他学科的效果没有系统验证过（见上一节） |
-| **AI 接口只有两条** | `claude-code` 与 `deepseek`；其他 agent 待社区贡献 |
+| **各家模型的效果差异** | 接口是通用的，但**不同模型抽出来的图好不好没有系统验证过**（作者主要用 DeepSeek 系） |
 | 超长一节出图数量 | 模型单次回话有输出上限，最长的节稳定出到 5 张；要更多得改多次调用 |
 | 扫描版 PDF | 需要文字层，**纯扫描件没验证过** |
 | 跨文献对比 | 概念 ID 已经是全局的、留了口子，但跨论文连图**还没做** |
@@ -253,8 +267,8 @@ AnonSight/
 ## 🙏 相关项目
 
 - **[MakoCode](https://github.com/liebaojun/MakoCode)** —— 同一作者做的桌面 AI Agent，
-  自带完整 Galgame 界面。装了它的机器可以直接用 AnonSight 的 `claude-code` 适配器。
-- **Claude Code** —— 平台默认的 AI 后端。
+  自带完整 Galgame 界面。（跟本平台的 AI 没有依赖关系，只是同一个作者。）
+- **Claude Code** ——*可选*的一条适配器：本机装过 CC 的人可以走它，不装也完全不影响使用。
 - **pdf.js / d3 / anime.js** —— 前端三件套，均已本地化。
 
 ## 📄 License

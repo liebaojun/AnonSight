@@ -96,7 +96,13 @@ def find_term(nb, text):
 
 
 def _adapter():
-    return adapters.DeepSeekAdapter(timeout=60, temperature=0.2)
+    """划词翻译用的适配器：**跟着配置走**（2026-09-20 通用化之前这里把 DeepSeek **写死**了，
+    于是用户换成别的模型时，一键分析走新接口、划词翻译还偷偷打着 DeepSeek —— 这种
+    "一半新一半旧"的毛病在界面上完全看不出来）。
+
+    B 入口对延迟敏感：刻意给短超时（60s）+ 低温度（0.2，释义要稳不要花）。
+    参数按签名透传——遇到不接受 temperature 的模型（如 Kimi k3）由适配器自己降级重试。"""
+    return adapters.get_adapter(timeout=60, temperature=0.2)
 
 
 # ⚠ 模型回"这不是一个完整的词/句子"时，**这一条不许进词表缓存**（2026-09-19 修）。

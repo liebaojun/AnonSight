@@ -1,1 +1,1 @@
-{"adapter": "claude-code"}
+{"adapter": "openai", "ai": {"preset": "deepseek"}}

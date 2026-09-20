@@ -1569,8 +1569,20 @@ main.panel-open #detail{
   flex:1; min-width:0; padding:8px 11px; font:inherit; font-size:12.5px;
   border:1px solid var(--line, #d8d8d4); border-radius:8px; background:var(--surface-1, #fff); color:inherit;
 }
+/* 2026-09-20 通用 AI 接口：加了「预设 / 地址 / 模型名」三行 —— 每行 = 标签 + 输入框 */
+#settings .field{display:flex; align-items:center; gap:10px; margin:8px 0}
+#settings .field label{
+  flex:0 0 68px; font-size:12.5px; opacity:.78; text-align:right;
+}
+#settings .field input, #settings .field select{
+  flex:1; min-width:0; padding:8px 11px; font:inherit; font-size:12.5px;
+  border:1px solid var(--line, #d8d8d4); border-radius:8px;
+  background:var(--surface-1, #fff); color:inherit;
+}
+#settings .field input[readonly]{opacity:.55; cursor:not-allowed}
 #settings .keystate{margin:4px 0 0; font-size:12.5px; min-height:18px}
 #settings .keystate.ok{color:#2e9e69} #settings .keystate.no{color:#c2603f}
+#settings .keystate.busy{opacity:.7}
 #settings .hint{margin-top:12px; font-size:12px; opacity:.72}
 
 #about h3{margin:20px 0 8px; font-size:13.5px}
@@ -1669,7 +1681,7 @@ main.panel-open #detail{
   <button class="tbtn" id="btnTheme">切换主题</button>
 
   <button class="tbtn" id="btnAbout">这是什么？</button>
-  <button class="tbtn" id="btnSettings" title="配 AI 用的 API Key（不填也能当阅读器用）">设置</button>
+  <button class="tbtn" id="btnSettings" title="配 AI 接口：地址 / 模型名 / Key（不填也能当阅读器用）">设置</button>
 
 </div>
 
@@ -2073,18 +2085,39 @@ main.panel-open #detail{
 <div id="settings">
   <div class="box">
     <button class="x" id="setClose">×</button>
-    <h2>设置</h2>
-    <h3>AI 功能（可选）</h3>
-    <p>填一个 <b>DeepSeek API Key</b>，「一键分析」和划词翻译才能用。</p>
+    <h2>设置 · AI 接口</h2>
+    <h3>接一个模型（可选）</h3>
+    <p>填 <b>接口地址 + 模型名 + API Key</b> 三样，「一键分析」和划词翻译就能用。
+       任何 <b>OpenAI 兼容</b>的服务都行 —— DeepSeek、Kimi、智谱 GLM、OpenAI、本地 Ollama…</p>
     <p><b>不填也能用</b> —— 平台照样能打开 <code>.ano</code> 文件、看章节切分、思想图和已有标注，
        只是不能重新跑一遍分析、也不能实时翻译。</p>
-    <div class="keyrow">
+    <div class="field">
+      <label for="presetSel">常用服务</label>
+      <select id="presetSel"></select>
+    </div>
+    <div class="field">
+      <label for="baseInput">接口地址</label>
+      <input type="text" id="baseInput" placeholder="https://服务商域名/v1"
+             autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="modelInput">模型名</label>
+      <input type="text" id="modelInput" placeholder="服务商文档里的模型名"
+             autocomplete="off" spellcheck="false">
+    </div>
+    <div class="field">
+      <label for="keyInput">API Key</label>
       <input type="password" id="keyInput" placeholder="sk-..." autocomplete="off" spellcheck="false">
+    </div>
+    <div class="keyrow">
       <button class="tbtn" id="keySave">保存</button>
+      <button class="tbtn" id="keyTest">测试连接</button>
+      <button class="tbtn" id="keyClear">清空 Key</button>
     </div>
     <p id="keyState" class="keystate"></p>
-    <p class="hint"><b>输入框空着 ≠ 没配</b> —— 已保存的 Key 不会回填显示（安全考虑），看上面的状态行才准。<br>
-       Key 只存在这台电脑上、只发给 DeepSeek，不会传到别处。想清空就把输入框留空再点保存。</p>
+    <p class="hint"><b>Key 框空着 ≠ 没配</b> —— 已保存的 Key 不会回填显示（安全考虑），看上面的状态行才准。</p>
+    <p class="hint">Key 只存在这台电脑上、只发给你填的那个地址，不会传到别处。<br>
+       选「自定义」时可以填任何兼容服务（含局域网/本机的模型服务，那种连 Key 都不用填）。</p>
   </div>
 </div>
 
@@ -3975,7 +4008,7 @@ async function showTranslation(text, range){
 
 
 
-/* 划词实时翻译：先查缓存（导入时预热过就是瞬时命中），没有再调本地服务转 DeepSeek。
+/* 划词实时翻译：先查缓存（导入时预热过就是瞬时命中），没有再调本地服务转**配置的那个 AI 接口**。
 
    ⚠ 延迟敏感——超过约 2 秒要有"翻译中…"占位，不能干等着像死机。
 
@@ -9867,10 +9900,64 @@ function bindUI(){
   const about = document.getElementById('about');
 
   document.getElementById('btnAbout').onclick = () => about.classList.add('show');
-  /* 设置弹窗：只为「AI 有没有 key」这一件事。
-     不填 key 平台照样能用（当 .ano 阅读器），所以这里措辞不要让人以为"不填就废了"。 */
+  /* 设置弹窗：管三样 —— 接口地址 / 模型名 / API Key（2026-09-20 通用化）。
+     任何 OpenAI 兼容服务都能接；不配平台照样能用（当 .ano 阅读器），
+     所以措辞不要让人以为"不配就废了"。
+     ⚠ 前端**不缓存 Key**（服务端也从不回传 Key 本身），所以那个框永远是空的 ——
+       空 ≠ 没配，状态行才是准的。 */
   const setBox = document.getElementById('settings');
   const keyState = document.getElementById('keyState');
+  const presetSel = document.getElementById('presetSel');
+  const baseInput = document.getElementById('baseInput');
+  const modelInput = document.getElementById('modelInput');
+  const keyInput = document.getElementById('keyInput');
+  let setInfo = null;                       // 最近一次 /api/settings 的结果
+
+  function postJSON(path, body){
+    return fetch(path, {method: 'POST', headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(body)}).then(r => r.json());
+  }
+  function paintState(d){
+    setInfo = d;
+    keyInput.value = '';
+    if (d.hasKey){
+      keyState.className = 'keystate ok';
+      keyState.textContent = '✓ 已配置 API Key ' + (d.keyHint || '') + '（AI 功能可用）';
+      // ⚠ 已保存的 key **不回填到输入框**（安全考虑），但"空着"很容易被误读成"没配"
+      //   —— 主人就中过这个（2026-09-19："我发现那个 API 那里是空的，现在是能用还是不能用？"）。
+      //   所以空的时候用占位文字把话说清楚。
+      keyInput.placeholder = '留空 = 不改动现有 Key；要换就粘新的进来再点保存';
+    } else {
+      keyState.className = 'keystate no';
+      keyState.textContent = d.local
+        ? '本地服务通常不用 Key —— 直接点「测试连接」看通不通'
+        : '尚未配置 API Key —— AI 功能不可用，但阅读功能一切正常';
+      keyInput.placeholder = d.local ? '本地服务留空即可' : '把 API Key 粘到这里';
+    }
+    // 后端被配置文件指到了别处（比如 `claude-code`）时说一声 —— 否则用户在这个界面
+    // 点一次保存，后端就被**悄悄**换成通用接口了，他会以为"怎么突然换了一家"。
+    if (d.engine && d.engine !== 'openai'){
+      keyState.textContent += '（配置里当前写的是 ' + d.engine + '：在这点保存会切回通用接口）';
+    }
+  }
+  function fillPresets(list, cur){
+    presetSel.innerHTML = '';
+    (list || []).forEach(p => {
+      const o = document.createElement('option');
+      // 下拉里带上域名，用户一眼看出"这仨字是打到哪家去的"
+      const host = (p.base_url || '').replace(/^https?:\/\//, '').split('/')[0];
+      o.textContent = p.label + (host ? '　' + host : '');
+      o.value = p.id;
+      if (p.id === cur) o.selected = true;
+      presetSel.appendChild(o);
+    });
+  }
+  function loadIntoForm(d){
+    fillPresets(d.presets, d.preset);
+    baseInput.value = d.base_url || '';
+    modelInput.value = d.model || '';
+    paintState(d);
+  }
   async function refreshKeyState(){
     try{
       // ⚠ 这里**不能用 API**：那个常量是【论文级】前缀（/api/papers/<id>），
@@ -9878,38 +9965,83 @@ function bindUI(){
       //   （{error:...}），于是 d.hasKey 是 undefined、悄悄走了 else 分支，
       //   界面就假装'尚未配置' —— 明明配了也说没配。这类 bug 不报错、只骗人。
       const r = await fetch('/api/settings');
-      const d = await r.json();
-      const inp = document.getElementById('keyInput');
-      if (d.hasKey){
-        keyState.className = 'keystate ok';
-        keyState.textContent = '✓ 已配置 ' + (d.keyHint || '') + '（AI 功能可用）';
-        // ⚠ 已保存的 key **不回填到输入框**（安全考虑），但"空着"很容易被误读成"没配"
-        //   —— 主人就中过这个（2026-09-19："我发现那个 API 那里是空的，现在是能用还是不能用？"）。
-        //   所以空的时候用占位文字把话说清楚。
-        if (inp) inp.placeholder = '留空 = 不改动现有 Key；要换就粘新的进来再点保存';
-      } else {
-        keyState.className = 'keystate no';
-        keyState.textContent = '尚未配置 —— AI 功能不可用，但阅读功能一切正常';
-        if (inp) inp.placeholder = '把 DeepSeek 的 API Key 粘到这里（sk- 开头）';
-      }
+      loadIntoForm(await r.json());
     }catch (e){ keyState.className = 'keystate no'; keyState.textContent = '读不到设置：' + e; }
   }
+  // 换一个"常用服务" = 把地址/模型名填成那家的默认值。三个框**始终可编辑** ——
+  // 预设只是省打字，不是白名单。
+  presetSel.onchange = () => {
+    const p = ((setInfo && setInfo.presets) || []).find(x => x.id === presetSel.value);
+    if (!p) return;
+    if (p.id === 'custom'){                 // 自定义：回落到当前已保存的值，别把人的网址抹了
+      baseInput.value = (setInfo && setInfo.base_url) || '';
+      modelInput.value = (setInfo && setInfo.model) || '';
+    } else {
+      baseInput.value = p.base_url || '';
+      modelInput.value = p.model || '';
+    }
+    // 把"这一家我配过没有"当场说清楚：有 Key 就直接测，没有就先贴 Key ——
+    // 而不是让人填完点一次保存才知道（key 从来不会回填，光看输入框是看不出来的）
+    const has = !!(setInfo && setInfo.keys && setInfo.keys[p.id]);
+    const slot = p.id === 'custom' ? 'openai' : p.id;
+    const isLocal = /^https?:\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0|\[::1\])(:|\/)/i.test(baseInput.value);
+    keyState.className = 'keystate' + (has ? ' ok' : '');
+    keyState.textContent = has
+      ? '✓ 这一家存过 Key（' + slot + '）—— 点「测试连接」验一下，然后点「保存」'
+      : (isLocal ? '本地服务不用填 Key —— 直接点「保存」，再点「测试连接」看服务起没起'
+                 : '这一家还没存过 Key —— 贴上 Key 再点「保存」');
+  };
   const bs = document.getElementById('btnSettings');
   if (bs) bs.onclick = () => { refreshKeyState(); setBox.classList.add('show'); };
   document.getElementById('setClose').onclick = () => setBox.classList.remove('show');
   setBox.onclick = e => { if (e.target === setBox) setBox.classList.remove('show'); };
   document.getElementById('keySave').onclick = async () => {
-    const inp = document.getElementById('keyInput');
     try{
-      const r = await fetch('/api/settings/apikey', {
-        method: 'POST', headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({ key: inp.value }),
+      const d = await postJSON('/api/settings', {
+        preset: presetSel.value, base_url: baseInput.value,
+        model: modelInput.value, key: keyInput.value,
       });
-      const d = await r.json();
-      inp.value = '';
-      toast(d.hasKey ? '已保存 API Key，AI 功能可以用了' : '已清空 API Key');
-      refreshKeyState();
+      if (d.error){ toast('保存失败：' + d.error); return; }
+      loadIntoForm(d);
+      toast(d.hasKey ? '已保存，AI 功能可以用了' : '已保存（还没填 Key，AI 功能暂不可用）');
     }catch (e){ toast('保存失败：' + String(e).slice(0, 50)); }
+  };
+  /* 「测试连接」：拿**输入框里现在这些值**真发一句话过去 ——
+     可以"先测再存"，地址/Key/模型名哪一样不对当场就知道是哪一样。 */
+  document.getElementById('keyTest').onclick = async () => {
+    keyState.className = 'keystate busy';
+    keyState.textContent = '正在连接…（最多等 30 秒）';
+    try{
+      const d = await postJSON('/api/settings/test', {
+        preset: presetSel.value, base_url: baseInput.value,
+        model: modelInput.value, key: keyInput.value,
+      });
+      keyState.className = 'keystate ' + (d.ok ? 'ok' : 'no');
+      keyState.textContent = (d.ok ? '✓ ' : '✗ ') + (d.message || '') +
+        (d.ok ? '　（记得点「保存」才生效）' : '');
+    }catch (e){
+      keyState.className = 'keystate no';
+      keyState.textContent = '✗ 测试失败：' + String(e).slice(0, 80);
+    }
+  };
+  /* 清空 Key：**两下确认**（第一下只是把按钮变成"再点一下确认"）。
+     不用 window.confirm —— 内嵌窗口里弹原生对话框不靠谱，还是自己画状态稳。 */
+  let clearArmed = false;
+  document.getElementById('keyClear').onclick = async (ev) => {
+    const b = ev.currentTarget;
+    if (!clearArmed){
+      clearArmed = true;
+      b.textContent = '再点一下确认清空';
+      setTimeout(() => { clearArmed = false; b.textContent = '清空 Key'; }, 4000);
+      return;
+    }
+    clearArmed = false; b.textContent = '清空 Key';
+    try{
+      const d = await postJSON('/api/settings', {clearKey: true});
+      if (d.error){ toast('清空失败：' + d.error); return; }
+      loadIntoForm(d);
+      toast('已清空 API Key');
+    }catch (e){ toast('清空失败：' + String(e).slice(0, 50)); }
   };
 
   document.getElementById('aboutClose').onclick = () => about.classList.remove('show');

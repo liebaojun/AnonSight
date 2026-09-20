@@ -9,13 +9,14 @@ REM
 REM  ⚠ 打包前确认没把个人数据带进去 —— 白名单在 app.spec，
 REM     打完之后 exe 启动时还会自检（混进 .keys.json / papers/ 会拒绝启动）。
 REM
-REM  ★ 开源发布版还多一步（2026-09-19 定的，别忘）：
-REM      `dist\AnonSight\_internal\paperide.config.json` 的 adapter 要写成
-REM      **claude-code**（仓库里那份是开发机自用的 deepseek，快 17 倍）。
-REM      理由：发出去的包面向"装了 Claude Code 的人"，默认 claude-code 才开箱能用；
-REM      默认 deepseek 的话，没填 Key 的人一按分析就报"还没配 DeepSeek API Key"，
-REM      而界面上**没有切换适配器的开关**，他会卡在那儿。
-REM      这一步要放在 ISCC 之前。改完记得重跑一次 ISCC（不用重跑 PyInstaller）。
+REM  ★ 出厂配置（2026-09-20 起）：**不用再手动改**。
+REM      以前这里有一条"打完把 _internal\paperide.config.json 的 adapter 改成
+REM      claude-code"的手工步骤 —— 那种"打完包再记得改一个文件"的做法本身就是隐患：
+REM      忘了 = 发出去的包默认行为跟你以为的不一样，而且**没人会发现**（2026-09-19
+REM      就是这么把一份带 claude-code 的包发出去的，事后全靠人记得）。
+REM      现在出厂配置跟仓库根那份**一模一样**（`{"adapter":"openai","ai":{"preset":"deepseek"}}`），
+REM      由 app.spec 直接拷进包。用户换哪家在**设置界面**里选（下拉 + 三个输入框），
+REM      不再依赖配置文件里写死某一家 —— 所以打包流程里没有任何"手改配置"的步骤了。
 REM ============================================================
 setlocal
 cd /d "%~dp0"
