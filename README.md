@@ -156,16 +156,12 @@ DOI: [10.1016/j.cell.2026.05.043](https://doi.org/10.1016/j.cell.2026.05.043) �
 所以 **DeepSeek / Kimi / 智谱 / OpenAI / 本地 Ollama / 任何 OpenAI 兼容的服务**都能接，
 包括你自己在局域网里跑的那些（那种连 Key 都不用填）。
 
-> ✅ **不需要装 Claude Code，也不需要装任何别的东西。**
-> 早先的说明书写着"得先装 CC 或 MakoCode"——**那是错的**，这里更正：
-> 平台从来就是直连 API 干活的（作者的 11 篇分析全部是直连产出的，一篇都没走 CC）。
-
 ### 两条路
 
 | 适配器 | 说明 |
 |---|---|
 | `openai`（**默认**） | 打任意 OpenAI 兼容的 `/chat/completions`，**只要地址 + 模型名 + Key** |
-| `claude-code` | 后台拉起本机的 `claude` 命令。**给"本来就装了 Claude Code、想用它的额度"的人，可选** |
+| `claude-code` | 后台拉起本机的 `claude` 命令，给想用本机 CC 额度的人 |
 
 换法：**推荐在设置界面里改**（有下拉和三个输入框）；也可以用配置文件 `paperide.config.json`
 的 `adapter` / `ai` 字段，或环境变量 `PAPERIDE_ADAPTER`。

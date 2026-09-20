@@ -1,4 +1,12 @@
 @echo off
+REM  ⚠ 这个文件**必须是 CRLF 行尾**（2026-09-20 踩到，血泪）：
+REM    cmd.exe 执行批处理时是按字节块读文件再跳转的，**LF-only 的文件在长到一定程度后
+REM    会从行中间断开**，表现为把 "echo" 当成 "ho"、"exit /b 1" 当成 "1" 去执行：
+REM        '--clean' is not recognized as an internal or external command
+REM    （同目录的 打开平台.cmd 也是 LF 却能跑，是因为它短 —— 这类 bug 会随文件变长突然出现，
+REM      而且报的错跟真正的原因毫无关系，极难查。）
+REM    改这个文件请用能保留 CRLF 的编辑器；git 这边没配 .gitattributes，不做自动转换。
+chcp 65001 >nul
 REM ============================================================
 REM  AnonSight 一键打包（程序 + 安装程序）
 REM
@@ -21,13 +29,21 @@ REM ============================================================
 setlocal
 cd /d "%~dp0"
 
+REM  ★ 用哪个 python：**优先 `py -3`（Python 启动器）**。
+REM    原因（2026-09-20 实测）：本机 PATH 里 Microsoft Store 的**假别名**
+REM    （`...\WindowsApps\python.exe`）排在真 Python 前面，直接敲 `python`
+REM    会得到 "Python was not found; run without arguments to install from the
+REM    Microsoft Store" —— 而 PATH 里明明装着 Python 3.12。`py` 没有这个别名问题。
+set "PY=py -3"
+where py >nul 2>nul || set "PY=python"
+
 echo [1/4] 清理上次的产物…
 if exist build     rmdir /s /q build
 if exist dist      rmdir /s /q dist
 if exist installer rmdir /s /q installer
 
 echo [2/4] 打包程序（文件夹模式）…
-python -m PyInstaller app.spec --noconfirm --clean
+%PY% -m PyInstaller app.spec --noconfirm --clean
 if errorlevel 1 goto fail
 if not exist dist\AnonSight\AnonSight.exe (
   echo ✗ 没产出 dist\AnonSight\AnonSight.exe
@@ -39,7 +55,7 @@ REM ★ 这一步是**闸门**，不是"打完再跑的建议" —— 2026-09-19
 REM   `paths.DATA = exe 所在目录`，跑过一次 dist 里的打包版就会在那儿生成 `papers\`；
 REM   而安装器原本用通配符打包，**再打一次就把开发者的论文一起发出去了**。
 REM   所以自查必须放在"生成安装程序"**之前**，不过就停。
-python check-export.py
+%PY% check-export.py
 if errorlevel 1 goto fail
 
 echo [4/4] 生成安装程序…

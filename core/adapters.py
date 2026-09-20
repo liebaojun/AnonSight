@@ -15,15 +15,11 @@ PaperIDE · AI 适配器层（P3-b / 2026-09-20 通用化）
 | | `openai`（**默认**） | `claude-code` |
 |---|---|---|
 | 怎么干活 | 打任意 OpenAI 兼容的 `/chat/completions` | 后台拉起本机 `claude` 无头进程 |
-| 要什么 | **接口地址 + 模型名 + API Key** 三样 | 电脑里得装了 Claude Code |
+| 要什么 | **接口地址 + 模型名 + API Key** 三样 | 电脑里装了 Claude Code |
 | 覆盖 | DeepSeek / Kimi / 智谱 / OpenAI / 本地 Ollama / 任何兼容服务 | 只有 CC 这一条 |
 
-★ 2026-09-20 主人拍板通用化，起因是一桩**讲错的事**（教训见记忆 [[design-vs-actual-config]]）：
-  我讲架构时只讲了"设计方案"（claude-code 那条），而**配置里实际跑的一直是 deepseek 直连**——
-  主人库里 11 篇分析全是 deepseek 产出的、一篇都没走 CC，他却被误导以为"得先装 CC"。
-  所以现在的默认是**通用 API 那条**：谁都不用先装别的东西，填三个框就能用。
-
-`claude-code` 那条**保留**（有人就喜欢用本机 CC 的额度），但不再是默认。
+用户什么都不用先装：设置界面里选一个「常用服务」、贴上 Key 就能用
+（`claude-code` 那条保留，给想用本机 CC 额度的人）。
 
 实测配方（接续文档 §5.1，2026-09-17 在本机跑通）：
     claude -p <prompt> --output-format json --bare --strict-mcp-config --allowedTools ""
@@ -363,7 +359,12 @@ class OpenAICompatAdapter(Adapter):
             raise self._http_error(code, text, relaxed)
 
         self.last_usage = r.get('usage')
-        ch = (r.get('choices') or [{}])[0]
+        # 有些网关/自建服务的错误是**塞在 200 的响应体里**的（HTTP 层完全看不出来），
+        # 不拦的话会一路变成"模型返回空"这种没有信息量的报错 —— 把原文端出来给人看。
+        if not r.get('choices'):
+            raise AIError('接口没返回可用结果（HTTP 200，但没有 choices）：%s'
+                          % str(r.get('error') or r)[:300])
+        ch = r['choices'][0]
         self.last_finish = ch.get('finish_reason')
         # ⚠ **截断必须当成硬错误抛出来**：finish_reason=length 表示回话被 max_tokens 砍断了。
         #   以前不抛的话，下面 extract_json 的 raw_decode 会"成功"抠出**半截对象**——
@@ -374,7 +375,12 @@ class OpenAICompatAdapter(Adapter):
             raise AIError('输出被 max_tokens(%d) 截断（finish_reason=length）：'
                           '这一版 JSON 不完整，不能当结果用' % self.max_tokens)
         msg = ch.get('message') or {}
-        return msg.get('content') or ''
+        c = msg.get('content')
+        # 少数服务按"内容块数组"回（新格式那一路），不是字符串 —— 拼起来，
+        # 否则下游 extract_json 会拿到一个 list，报出来的是"回话里找不到 JSON"，查错方向全歪
+        if isinstance(c, list):
+            c = ''.join(p.get('text', '') for p in c if isinstance(p, dict))
+        return c or ''
 
     def _http_error(self, code, text, relaxed=()):
         hint = _HTTP_HINTS.get(code, '对方接口报错了')

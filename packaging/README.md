@@ -78,8 +78,7 @@ python packaging/smoke-test.py                   # 实跑：真启动、调接�
   → 地址和模型名自动填好 → 贴 API Key → 点「测试连接」→ 点「保存」
   （**不填也能当 `.ano` 阅读器用**）
 - 想出厂的默认值：改仓库根 `paperide.config.json`（`adapter` + `ai` 两个字段），
-  打包时由 `app.spec` 原样拷进 `_internal\`。**没有任何"打完包再手改一个文件"的步骤**了
-  （2026-09-20 铲掉的：以前要把发布包里的 adapter 手改成 claude-code，忘了就发错）
+  打包时由 `app.spec` 原样拷进 `_internal\`。**没有"打完包再手改一个文件"这类步骤**
 - 本机装了 Claude Code 的人也可以走 `claude-code` 那条（把配置里 `adapter` 写成它）
 
 ## 还没做的（下一步）
