@@ -147,7 +147,7 @@ DOI: [10.1016/j.cell.2026.05.043](https://doi.org/10.1016/j.cell.2026.05.043) �
 | 填什么 | 长什么样 |
 |---|---|
 | 接口地址 | `https://api.deepseek.com/v1` |
-| 模型名 | `deepseek-chat` |
+| 模型名 | `deepseek-flash` |
 | API Key | 你自己在服务商那边申请的 |
 
 顶栏「设置」→ 选一个「常用服务」（预置了 DeepSeek / Kimi / 智谱 GLM / OpenAI / 本地 Ollama），

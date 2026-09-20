@@ -167,8 +167,20 @@ class ClaudeCodeAdapter(Adapter):
 #:   模型名会随厂商换代（实测 2026-09：Kimi 的 k2 系列 / moonshot-v1 已下线，
 #:   现役是 kimi-k3；智谱是 glm-5）。填错了接口会明确报"模型不存在"，改一下就行。
 PRESETS = {
-    'deepseek': {'label': 'DeepSeek', 'base_url': 'https://api.deepseek.com/v1',
-                 'model': 'deepseek-chat'},
+    # ★ 2026-09-20 按官方文档（api-docs.deepseek.com/zh-cn）订正 + **实测过**：
+    #   · 地址：文档给的是裸域名 `https://api.deepseek.com`（示例直接打 /chat/completions）。
+    #     实测裸域名和 /v1 两种都能通，这里照文档写；chat_url() 会补成全路径。
+    #   · 模型名：文档现在只有 `deepseek-flash` 和 `deepseek-v4-pro`，
+    #     **`deepseek-chat` 已经不在文档里**（旧名还认，实测 200，会继续工作，只是别再写它）。
+    #   · `thinking`：**flash 默认是开思考的**（文档：thinking.type 默认 enabled）。
+    #     实测开了思考时，max_tokens=8 全被思考内容吃掉、正文为空且 finish=length ——
+    #     而平台每节要吐几千 token 的 JSON，思考 token 会和正文**抢同一个 max_tokens**，
+    #     长节会被误判成"截断"（那是硬错误，见下面 finish_reason=length 那段）。
+    #     所以这里显式关掉：与平台既有的产出行为、速度、花费一致（temperature 也才生效）。
+    #     想换成开思考：配置里 `ai.thinking` 写 "enabled"（见 extra_body 那段）。
+    'deepseek': {'label': 'DeepSeek', 'base_url': 'https://api.deepseek.com',
+                 'model': 'deepseek-flash',
+                 'body': {'thinking': {'type': 'disabled'}}},
     'kimi': {'label': 'Kimi（月之暗面）', 'base_url': 'https://api.moonshot.cn/v1',
              'model': 'kimi-k3'},
     'zhipu': {'label': '智谱 GLM', 'base_url': 'https://open.bigmodel.cn/api/paas/v4',
@@ -245,6 +257,13 @@ class OpenAICompatAdapter(Adapter):
         self.key_name = (key_name or cfg['key_name']
                          or (p if p != 'custom' else 'openai')).strip()
         # 本地服务不需要真 Key（Ollama / LM Studio / vLLM 都这样），别拿"没填 Key"卡住人
+        #: 服务商特有的附加字段。预设可以带（如 DeepSeek 的 `thinking`），
+        #: 用户配置里 `ai.thinking` 还能覆盖它 —— 各家参数不一样，**不预设就不发**，
+        #: 不发就不会在别家那儿撞 400（这是"多接一家"最省事的做法）。
+        self.extra_body = dict(pre.get('body') or {})
+        _t = (cfg.get('thinking') or '').strip().lower()
+        if _t in ('enabled', 'disabled'):
+            self.extra_body['thinking'] = {'type': _t}
         self.local = bool(_LOCAL_RE.match(self.base_url))
         self.key = (key if key is not None else load_key(self.key_name)) or ''
         self.key = self.key.strip()
@@ -257,7 +276,7 @@ class OpenAICompatAdapter(Adapter):
         #   · 4096 时模型只吐完 lead 就被砍（views 一个都没有）；
         #   · 8192 时长节要 6 张图又顶到天花板（2026-09-18 实测 finish_reason=length）。
         # 2026-09-18 实测**接口本身远不止 8192**：同一个 key 打 16384 / 32768 都被接受
-        #   （`deepseek-chat` 现在由 `deepseek-flash` 提供服务），所以瓶颈是我们自己配的数。
+        #   实测接口远不止 8192（同一个 key 打 16384 / 32768 都被接受），瓶颈是我们自己配的数。
         # 现在给到 24576：够一节出 6 张图；再大也没意义（模型单轮不会吐那么多）。
         # timeout 同步提到 240s —— 输出越长生成越久，90s 会先超时。
         self.max_tokens = max_tokens
@@ -285,6 +304,7 @@ class OpenAICompatAdapter(Adapter):
         }
         if self.json_mode:
             b['response_format'] = {'type': 'json_object'}   # 支持结构化输出的服务会照做
+        b.update(self.extra_body)
         return b
 
     def _relax(self, body, err):
@@ -512,7 +532,7 @@ def ai_config():
     兼容两代写法：
         旧： {"adapter": "deepseek"}                       ← 首日起就在用的那种
         新： {"adapter": "openai", "ai": {"preset": "deepseek",
-              "base_url": "…", "model": "deepseek-chat", "key_name": "deepseek"}}
+              "base_url": "…", "model": "deepseek-flash", "key_name": "deepseek"}}
     """
     cfg = read_config()
     ai = dict(cfg.get('ai') or {})
@@ -526,6 +546,8 @@ def ai_config():
         'base_url': (ai.get('base_url') or '').strip(),
         'model': (ai.get('model') or '').strip(),
         'key_name': (ai.get('key_name') or '').strip(),
+        #: 覆盖预设的思考模式开关（"enabled"/"disabled"）。空 = 听预设的。
+        'thinking': (ai.get('thinking') or '').strip().lower(),
     }
 
 
@@ -576,8 +598,11 @@ def state():
     model = cfg['model'] or pre['model']
     kn = cfg['key_name'] or (p if p != 'custom' else 'openai')
     k = load_key(kn)
+    #: 生效的思考模式：用户配置 > 预设带的 > 空（= 由服务端决定，界面上不显示）
+    thinking = cfg.get('thinking') or ((pre.get('body') or {}).get('thinking') or {}).get('type') or ''
     return {
         'engine': adapter_name(),
+        'thinking': thinking,
         'preset': p,
         'base_url': base,
         'model': model,
