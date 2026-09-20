@@ -67,6 +67,12 @@
 <td width="50%"><img src="docs/assets/screenshots/05-domain-map.png" alt="模式图"><br>
 <sub><b>模式图</b>：构建体/结构域怎么搭的——气泡和方框都讲不清的那种内容</sub></td>
 </tr>
+<tr>
+<td width="50%"><img src="docs/assets/screenshots/07-flow-chart.png" alt="流程图"><br>
+<sub><b>流程图</b>：实验步骤、信号传递这类先后关系，方框加箭头画，条件写在箭头旁</sub></td>
+<td width="50%"><img src="docs/assets/screenshots/09-concept-network.png" alt="概念网"><br>
+<sub><b>概念网</b>：概念之间的关系网（包含/结合/调控…），每个节点都能点回原文</sub></td>
+</tr>
 </table>
 
 <img src="docs/assets/screenshots/06-annotations.png" alt="标注层" width="100%">

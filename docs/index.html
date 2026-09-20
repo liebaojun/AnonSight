@@ -1,3 +1,4 @@
+<meta charset="utf-8">
 <title>AnonSight · 把论文的思想结构变成看得见的图</title>
 <link rel="icon" href="favicon.ico">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
@@ -147,6 +148,8 @@
   figure.shot figcaption{font-size:13px; color:var(--muted); line-height:1.6}
   figure.shot figcaption b{color:var(--ink); font-weight:600}
   .shots2{display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin-top:16px}
+  /* 三种图型各一张的实拍：图比较窄，三列排更好看（见「三种图型」那段） */
+  .shots3{display:grid; grid-template-columns:repeat(auto-fit,minmax(260px,1fr)); gap:16px; margin-top:16px}
 
   /* ---------- 顶部链接条 ---------- */
   .navlinks{display:flex; flex-wrap:wrap; gap:8px; margin-top:16px}
@@ -263,6 +266,24 @@
       <figure class="shot">
         <img src="assets/screenshots/05-domain-map.png" alt="模式图">
         <figcaption><b>模式图</b>：构建体与结构域怎么搭的、几条设计差在哪一段——这种"长什么样"的内容，气泡网和方框流程图都讲不清，所以专门有一种图型。</figcaption>
+      </figure>
+    </div>
+
+    <div class="prose" style="margin-top:26px">
+      <p>三种图型各来一张实拍（换成另一篇论文，同样是真跑出来的）：</p>
+    </div>
+    <div class="shots3">
+      <figure class="shot">
+        <img src="assets/screenshots/07-flow-chart.png" alt="流程图">
+        <figcaption><b>流程图</b>：实验步骤、信号传递这类有先后顺序的内容，按方框加箭头画，每一步的条件写在箭头旁边。</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="assets/screenshots/08-schema.png" alt="模式图：三条构建体对照">
+        <figcaption><b>模式图</b>：三条 CAR 构建体并排画出来，结构域怎么排、几条设计差在哪一段，一眼看得出。</figcaption>
+      </figure>
+      <figure class="shot">
+        <img src="assets/screenshots/09-concept-network.png" alt="概念网">
+        <figcaption><b>概念网</b>：概念之间的关系网（包含、结合、调控…），每个节点都能点回支撑它的原文。</figcaption>
       </figure>
     </div>
   </section>
