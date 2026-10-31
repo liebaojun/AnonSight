@@ -18,10 +18,13 @@
 3. **双击 `.ano` 能把路径带进来**（Windows 文件关联会把它作为命令行参数传给我们），
    窗口起来后由前端提示"要不要导入这一篇"。
 """
+import json
 import os
 import socket
 import sys
 import threading
+import time
+import urllib.request
 
 #: 是否运行在 PyInstaller 打出来的包里
 FROZEN = bool(getattr(sys, 'frozen', False))
@@ -131,6 +134,87 @@ def free_port(prefer=8777, tries=20):
     raise RuntimeError('找不到可用端口（试过 %d 和 8800-%d）' % (prefer, 8799 + tries))
 
 
+# ==================================================================== headless / 多实例共用
+# 2026-10-25 主人要的：「你用那个 anonsight 能不能搞个 MCP 什么的，就不用在你用的时候也
+# 打开 UI 界面了。你直接后台操作就行，UI 的图形化是给我用的」。
+#
+# 所以启动器加两个模式：
+#   · `--headless` / `--no-ui`：只起本地 HTTP 服务，**不开窗口**，前台阻塞到 Ctrl+C；
+#   · 普通启动：如果已经有 AnonSight 服务在跑（headless 或另一个 UI），**直接连它**，
+#     不再起第二个 —— 两个进程同时写同一个 `papers/` 会互相覆盖 graph/ano。
+#
+# 发现方式 = 数据目录里的 `paperide.server.json`（不是 exe 旁边）：
+#   headless 可能由源码模式启动、UI 是安装版，两者 BASE 不同，但 `PAPERIDE_DATA`
+#   指向同一个真实论文库 —— 端口文件放 DATA 才能跨模式互认。
+def _data_dir():
+    try:
+        from core import paths as _P
+        return os.path.abspath(_P.DATA)
+    except Exception:
+        return os.path.abspath(BASE)
+
+
+def _info_path():
+    return os.path.join(_data_dir(), 'paperide.server.json')
+
+
+def _probe(port, timeout=0.5):
+    try:
+        with urllib.request.urlopen('http://127.0.0.1:%d/api/version' % int(port),
+                                    timeout=timeout) as r:
+            return json.loads(r.read().decode('utf-8'))
+    except Exception:
+        return None
+
+
+def read_server_info():
+    try:
+        return json.load(open(_info_path(), encoding='utf-8'))
+    except Exception:
+        return None
+
+
+def discover_server():
+    """当前数据目录是否已经有一个活着的 AnonSight 服务？"""
+    info = read_server_info()
+    if not info:
+        return None
+    try:
+        if os.path.abspath(info.get('dataDir') or '') != _data_dir():
+            return None
+        port = int(info.get('port') or 0)
+        if port <= 0 or not _probe(port):
+            return None
+    except Exception:
+        return None
+    return info
+
+
+def write_server_info(port, headless):
+    info = {
+        'port': int(port),
+        'pid': os.getpid(),
+        'startedAt': time.strftime('%Y-%m-%d %H:%M:%S'),
+        'headless': bool(headless),
+        'dataDir': _data_dir(),
+    }
+    tmp = _info_path() + '.tmp'
+    with open(tmp, 'w', encoding='utf-8') as f:
+        json.dump(info, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, _info_path())
+
+
+def clear_server_info(port):
+    """只删**自己写的那条**（别把另一个实例的端口文件删了）。"""
+    info = read_server_info()
+    try:
+        if (info and int(info.get('port') or 0) == int(port)
+                and int(info.get('pid') or 0) == os.getpid()):
+            os.remove(_info_path())
+    except Exception:
+        pass
+
+
 def check_no_personal_data():
     """打包版启动时自检：包里**绝不该有**开发者的个人数据。
 
@@ -158,6 +242,7 @@ def main():
     # 让 `import server` 能找到后端代码
     sys.path.insert(0, RES if FROZEN else SRC_ROOT)
     import server as S
+    from core import paths as _P
 
     if FROZEN:
         check_no_personal_data()
@@ -168,19 +253,72 @@ def main():
         #   现在路径统一由 `core/paths.py` 提供（RES = 只读资源 / DATA = 用户数据），
         #   **没有全局变量要补**：server.py 和每个 core 模块都是自己从 paths 取的。
         #   留这段注释是为了让下一个想在这里加猴补丁的人先读一读。
-        from core import paths as _P
-        assert _P.DATA == BASE, '_MEIPASS 之外的数据目录必须是 exe 所在目录'
+        if not os.environ.get('PAPERIDE_DATA'):
+            assert _P.DATA == BASE, '_MEIPASS 之外的数据目录必须是 exe 所在目录'
     os.makedirs(S.PAPERS, exist_ok=True)
 
-    port = free_port()
-    S.preload_core()
-    from http.server import ThreadingHTTPServer
-    srv = ThreadingHTTPServer(('127.0.0.1', port), S.Handler)
-    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    args = sys.argv[1:]
+    headless = ('--headless' in args) or ('--no-ui' in args)
+
+    # 无界面模式在 **windowed exe** 里没有真正的 stdout/stderr：`print(flush=True)`
+    # 可能把主线程卡住（2026-10-25 实测：端口文件写了、HTTP 却一个字节都不回；
+    # 把 stdout 重定向到文件就立刻正常）。所以 headless 一律把日志写进数据目录，
+    # 既不依赖控制台，也给 MCP/排查留一份。
+    if headless:
+        try:
+            os.makedirs(_data_dir(), exist_ok=True)
+            _hl_log = open(os.path.join(_data_dir(), 'headless.log'), 'a',
+                           encoding='utf-8', buffering=1)
+            sys.stdout = _hl_log
+            sys.stderr = _hl_log
+        except Exception:
+            import io
+            sys.stdout = io.StringIO()
+            sys.stderr = io.StringIO()
+
+    force_port = None
+    if '--port' in args:
+        try:
+            force_port = int(args[args.index('--port') + 1])
+        except (IndexError, ValueError):
+            force_port = None
+    new_server = '--new-server' in args
+
+    # 已经有一个 AnonSight 服务在跑 → 直接复用，绝不起第二个去抢同一个 papers/。
+    existing = None if new_server else discover_server()
+    if existing:
+        port = int(existing['port'])
+        srv = None
+        if headless:
+            print('[headless] 复用已有服务：http://127.0.0.1:%d/ (pid %s)'
+                  % (port, existing.get('pid')), flush=True)
+            return 0
+        print('[ui] 复用已有服务：http://127.0.0.1:%d/' % port, flush=True)
+    else:
+        port = free_port(prefer=force_port or 8777)
+        S.preload_core()
+        from http.server import ThreadingHTTPServer
+        srv = ThreadingHTTPServer(('127.0.0.1', port), S.Handler)
+        write_server_info(port, headless)
+        if headless:
+            print('[headless] http://127.0.0.1:%d/' % port, flush=True)
+            print('[headless] 数据目录：%s' % S.PAPERS, flush=True)
+            try:
+                srv.serve_forever()
+            except KeyboardInterrupt:
+                pass
+            finally:
+                clear_server_info(port)
+                try:
+                    srv.shutdown()
+                except Exception:
+                    pass
+            return 0
+        threading.Thread(target=srv.serve_forever, daemon=True).start()
 
     # 双击 .ano 时，文件路径会作为参数进来（Windows 文件关联就是这么传的）
     argv_file = ''
-    for a in sys.argv[1:]:
+    for a in args:
         if a.lower().endswith('.ano') and os.path.exists(a):
             argv_file = os.path.abspath(a)
             break
@@ -191,10 +329,11 @@ def main():
         url += '?file=' + quote(argv_file)
 
     # 双击 .ano 的关联：幂等、只写 HKCU、失败不拦启动
-    try:
-        print('[assoc]', register_ano_association())
-    except Exception as _e:
-        print('[assoc] 跳过:', _e)
+    if not existing:
+        try:
+            print('[assoc]', register_ano_association())
+        except Exception as _e:
+            print('[assoc] 跳过:', _e)
 
     import webview
     win = webview.create_window(
@@ -202,11 +341,15 @@ def main():
         width=1440, height=940, min_size=(920, 620),
         text_select=True,
     )
-    webview.start()          # 阻塞在这里直到窗口关闭
     try:
-        srv.shutdown()
-    except Exception:
-        pass
+        webview.start()          # 阻塞在这里直到窗口关闭
+    finally:
+        if srv is not None:
+            clear_server_info(port)
+            try:
+                srv.shutdown()
+            except Exception:
+                pass
 
 
 if __name__ == '__main__':

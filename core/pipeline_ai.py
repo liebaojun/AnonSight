@@ -217,6 +217,7 @@ def analyze_section(sec, meta, idmap, adapter, progress, lock, rawdir=None):
                   + '\n'.join('- %s' % e for e in last_errs[:25]) +
                   '\n\n重新输出**完整**的 JSON（不要只给改动部分，不要解释）。\n')
         t0 = time.time()
+        raw = None
         try:
             raw = adapter.json(p)
         except adapters.AIError as e:
@@ -225,6 +226,16 @@ def analyze_section(sec, meta, idmap, adapter, progress, lock, rawdir=None):
                 progress('%s 第 %d 次调用失败：%s' % (sid, attempt, str(e)[:120]))
             if too_big(e) and nview > 1:
                 nview, prompt = shrink(nview)
+            continue
+        # ⚠ 模型偶尔会回一个 JSON **数组**（[{...}]）而不是对象；`raw.get` 一崩，
+        #   这个异常会穿过 ThreadPoolExecutor 把**整篇**抽取打断（2026-10-25 实测：
+        #   2021 Wei / 2026 Xu 两篇因此没有 graph.json，但 job 仍报 done）。
+        #   这里当成一次失败的尝试，带错误重试；不要再让单节炸整篇。
+        if not isinstance(raw, dict):
+            last_errs = ['模型返回的是 %s 而不是 JSON 对象——请只输出一个 {...}'
+                         % type(raw).__name__]
+            with lock:
+                progress('%s 模型返回了 %s，重试' % (sid, type(raw).__name__))
             continue
         raws.append({'attempt': attempt, 'errorsBeforeThisAttempt': list(last_errs), 'raw': raw})
         title_zh = (raw.get('titleZh') or '').strip()
@@ -332,6 +343,9 @@ def analyze_section(sec, meta, idmap, adapter, progress, lock, rawdir=None):
                    + '\n'.join('- %s' % e for e in last_errs[:12]) + '\n')
     try:
         raw = adapter.json(simple)
+        if not isinstance(raw, dict):
+            raise adapters.AIError('简化版返回了 %s 而不是 JSON 对象'
+                                   % type(raw).__name__)
         raws.append({'attempt': 'fallback', 'errorsBeforeThisAttempt': list(last_errs), 'raw': raw})
         obj = {
             'id': sid, 'title': (raw.get('titleZh') or '').strip() or sec['title'],
@@ -406,7 +420,15 @@ def analyze(pid, only=None, workers=3, progress=None, force=False):
         futs = {ex.submit(analyze_section, s, meta, idmap, adapter, progress, lock, rawdir): s for s in todo}
         for k, f in enumerate(cf.as_completed(futs), 1):
             s = futs[f]
-            sec_obj, errs, attempt, dt = f.result()
+            try:
+                sec_obj, errs, attempt, dt = f.result()
+            except Exception as e:
+                # 单节内部异常（模型返回形状不对、解析器等意外）**不许炸整篇**：
+                # 记成这一节失败，其余节继续；build_graph 仍会给失败的节留 tab。
+                failed[s['id']] = ['%s: %s' % (type(e).__name__, e)]
+                progress('[%d/%d] ✗ %s — 内部异常：%s'
+                         % (k, len(todo), s['id'], str(e)[:120]))
+                continue
             if sec_obj:
                 results[s['id']] = sec_obj
                 json.dump(sec_obj, open(os.path.join(aidir, s['id'] + '.json'), 'w', encoding='utf-8'),
@@ -459,6 +481,10 @@ def build_graph(pid, sections, results, meta):
                     # 顶栏 tab 上显示中文名（跟手工版一个规格）；英文原名留着备查
                     'title': (r or {}).get('title') or s['title'],
                     'titleEn': s['title'],
+                    # 层级/父节：前端节 tab 用来展示"Results 下的细分小节"。
+                    # 老 sections.json 没有这两个字段 → 给 0，前端按旧样式渲染。
+                    'level': s.get('level', 0),
+                    'parent': s.get('parent', ''),
                     # ⚠ 两套页码都带上，**口径写死在这里**：
                     #   `pdfPages` = 真实 PDF 页号（sections.json 里的权威值，前端优先用它）
                     #   `pageRange` = 老口径，wu2020/shi2025 是期刊页码、降级篇是 PDF 页码，

@@ -80,7 +80,7 @@ Name: "assocano"; Description: "把 .ano 文件关联到 AnonSight（双击就�
 ;   wu2020 MD5 一致（9AA0C297…），而它确实早于安装包编译时间。
 ;   开发者的论文是付费跑出来的个人数据，绝不能随包出去 —— 所以在**这一层**也堵一道，
 ;   不能只靠"打完记得跑 check-export"这种纪律（纪律会忘，通配符不会）。
-Source: "{#SrcDir}\*"; DestDir: "{app}"; Excludes: "papers\*,papers,.keys.json"; Flags: ignoreversion recursesubdirs createallsubdirs
+Source: "{#SrcDir}\*"; DestDir: "{app}"; Excludes: "papers\*,papers,.keys.json,paperide.server.json"; Flags: ignoreversion recursesubdirs createallsubdirs
 ; 两种图标，**别用混**（主人 2026-09-19 一眼看出来的）：
 ;   · `favicon.ico`   = **软件图标**（只有角色）→ 快捷方式 / 卸载项 / exe 用它
 ;   · `ano-file.ico`  = **.ano 文件图标**（角色 + 那个大红 A）→ 只给文件关联用

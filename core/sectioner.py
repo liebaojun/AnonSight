@@ -46,6 +46,28 @@ END_HEADINGS = (
     'SUPPLEMENTAL TABLES', 'FIGURE LEGENDS',
 )
 
+# ---- 大板块固定词表（2026-10-25 加，治 3-C 的最重形态）----
+# J Immunol 2014（1401184-1）的排版里**大板块与小标题同字号**（都 9pt 加粗）：
+#   字号层级判据整篇失效 → 17 条标题全被判成 L2、**0 个 L1** → 正文区起点找不到 →
+#   全部标题被排除 → 退化成"按页切块"，而兜底只扫到前 3 页 → 整篇 1 节。
+# 所以大板块不能靠字号，得靠**词表 + 上下文**：对上这张表就强制升 L1，
+# 不管它当时多大字号、有没有编号。`_num_level` 是显式结构（2.1 这类子节）时不覆盖。
+BODY_L1_HEADINGS = (
+    'RESULTS', 'RESULTS AND DISCUSSION', 'DISCUSSION', 'CONCLUSION', 'CONCLUSIONS',
+    'SUMMARY AND CONCLUSIONS',
+)
+
+# ---- 真正的"正文到此为止"（兜底切页专用）----
+# ⚠ 不能直接复用 END_HEADINGS：J Immunol / 部分期刊把 Methods 放在 Results **前面**，
+#   拿 METHODS 当正文终点会把后面的 Results/Discussion 全切掉。
+HARD_END_HEADINGS = (
+    'REFERENCES', 'ACKNOWLEDGMENTS', 'ACKNOWLEDGEMENTS',
+    'SUPPLEMENTAL INFORMATION', 'SUPPLEMENTARY INFORMATION',
+    'SUPPLEMENTAL FIGURES', 'SUPPLEMENTAL TABLES', 'FIGURE LEGENDS',
+    'AUTHOR CONTRIBUTIONS', 'DECLARATION OF INTERESTS', 'RESOURCE AVAILABILITY',
+    'KEY RESOURCES TABLE', 'LEAD CONTACT',
+)
+
 SIZE_TOLERANCE = 0.45       # 同一字体的字号抖动容差：8.2/8.3/8.4 其实是同一个字号
 SMALL_SIZE_DELTA = 0.8      # 比正文小这么多 = 图注/表注/脚注，不收进正文
 REPEAT_MAX_CHARS = 220      # 重复到多少字还算"页眉页脚"（Cell 的 "in press" 页眉能有 150+ 字）
@@ -64,6 +86,11 @@ FRAGMENT_RATIO = 0.55       # 组内"续行"占比高于此 = 会跨行续写的
 WS_RATIO = 1.8              # 行上方留白是正文行距的几倍 = 有"段前空"
 ADJACENT_LEADING = 1.45     # 标题换行合并的紧邻阈值（同一标题内部 dy≈1.0 行距；两条标题之间 dy≈2.0）
 COL_OVERLAP = 0.4           # 水平重叠多少算"同一栏"
+# 折行的第二行必须比第一行短（第一行撑满才会折，第二行是余下的那截）。
+# ⚠ 这是 2026-09-27 修 3-B 时**唯一能分开双倍行距版式**的信号：paper-4 的
+#   'Pooled screening…'(392.8→72.9，真折行) 与 'Results'(31.7→178.9，独立标题)
+#   dy 都是 29.2、字体字号全同 —— 除了宽度，没有别的信号可用。
+WRAP_SHRINK = 0.99
 MIN_HEAD_CHARS = 4          # 短于此的"标题"多半是符号/缩写，不要
 STUB_CHARS = 900            # 正文短于此的"节"多半是父级壳，并进下一节（见 sectionize 末尾）
 
@@ -410,6 +437,21 @@ def _num_level(text):
     return 1 if '.' not in m.group(1) else 2
 
 
+def _same_face(f1, f2):
+    """两个字体名是不是**同一个字族**（容忍斜体 / 字重差异）。
+
+    为什么需要：标题折行的第二行常用斜体。paper-3 的 "in vivo" 是
+    `HelveticaNeue-HeavyItali`，上一行是 `HelveticaNeue-Heavy` —— 严格比字体名会判成
+    "不同字体"，于是合并不了：那半截单独成节，还把后面 3427 字正文挂到它名下（3-A）。
+
+    `HelveticaNeue-Heavy` 与 `HelveticaNeue-HeavyItali` → 都归到 `helveticaneue`。
+    同名不同字重（Arial-Bold / Arial-Regular）也算同族 —— 它们本来就是同一支文字的强调形式；
+    "是不是真折行"还有行距 / 重叠 / 宽度三条判据把关。"""
+    a = (f1 or '').split('-')[0].lower()
+    b = (f2 or '').split('-')[0].lower()
+    return bool(a) and (a == b or a.startswith(b) or b.startswith(a))
+
+
 def heading_blocks(lines, roles, leading=11.0, debug=False):
     """把标题行聚成**标题块**（标题换行要合成一条），并按编号/全大写/首字母大写定级别。
 
@@ -428,13 +470,21 @@ def heading_blocks(lines, roles, leading=11.0, debug=False):
                 dy = l.y0 - last.y0
                 ov = min(last.x1, l.x1) - max(last.x0, l.x0)
                 narrow = min(last.x1 - last.x0, l.x1 - l.x0)
-                same_font = l.group == last.group
-                # 两个阈值都是踩过坑改的：
-                # ① 行距用**全文行距**，不用本行高度（bbox 高度随字体浮动，临界点上会随机合不上）
-                # ② 重叠量按**较窄那行**算——换行标题的第二行本身短，拿上一行的宽度当分母
-                #    永远够不上阈值（"Cover All CD3 ITAMs" 88pt / 上一行 233pt = 0.38 < 0.4）
-                if (same_font and 0 < dy < leading * ADJACENT_LEADING
-                        and ov > narrow * COL_OVERLAP):
+                # ★ 2026-09-27 重写折行判据（治 3-A 假节 + 3-B 粘连）。老代码是
+                #     `same_font and 0 < dy < leading*1.45 and ov > narrow*0.4`，两处病根：
+                #   ① same_font 要求字体名**严格相等** → 折行第二行换斜体就合并不了（paper-3 的
+                #      "in vivo"，还把它后面 3427 字正文挂到了那个假节名下）；
+                #   ② 行距阈值拿**正文行距**当尺子 → 双倍行距版式里阈值涨到 45.68，
+                #      把 'Results' 和它下面的小标题（相距 29.5）粘成一条（paper-4）。
+                #   新判据的关键是**第三条**：折行的第二行必然比第一行短（第一行撑满才折，
+                #   第二行是余下的那截）。实测 10 组相邻标题行全部判对：
+                #     paper-3  221.6→27.0 合 / 40.1→209.8 不合 / 27.0→217.9 不合
+                #     paper-4  392.8→72.9 合 / 31.7→178.9 不合 / 37.5→39.3 不合
+                #   ⚠ 光靠 dy 是分不开的：paper-4 那两组的 dy 都是 29.2、字体字号全同。
+                if (0 < dy < leading * ADJACENT_LEADING
+                        and ov > narrow * COL_OVERLAP
+                        and l.x1 - l.x0 < (last.x1 - last.x0) * WRAP_SHRINK
+                        and _same_face(l.group[0], last.group[0])):
                     plines.append(l)
                     continue
         blocks.append((None, [l]))
@@ -443,14 +493,25 @@ def heading_blocks(lines, roles, leading=11.0, debug=False):
         text = ' '.join(x.text.strip() for x in plines)
         text = re.sub(r'\s+', ' ', text).strip()
         letters = [c for c in text if c.isalpha()]
-        upper = letters and all(c.isupper() for c in letters)
-        # 级别两个信号，**编号优先**：
+        # ⚠ 至少 3 个字母才算"全大写标题"：单个大写字母/符号（公式里的 `Þ´ 100`）
+        #   会被 isupper() 判成大写，从而被误升 L1 —— 实测会把一篇 Nature Biotech
+        #   的 Letters 正文起点钉到第 8 页的公式行上，切出一堆方法学假节（2026-10-25
+        #   回归时抓到；当时旧代码碰巧靠"覆盖度<50%"退回按页切，掩盖了这条）。
+        upper = len(letters) >= 3 and all(c.isupper() for c in letters)
+        # 级别三个信号，**编号优先**，其次是大板块固定词表，最后才是全大写：
         #   ① 编号（显式的版式结构信息，'2 Results' → 1 / '2.1 …' → 2）
-        #   ② 全大写（老版式：Cell / wu2020 的 'SUMMARY' / 'INTRODUCTION'）
+        #   ② 固定词表（J Immunol 这类"大板块与小标题同字号"的版式，字号层级完全失效；
+        #      对上 INTRODUCTION/RESULTS/DISCUSSION… 就升 L1，**不依赖字号**）
+        #   ③ 全大写（老版式：Cell / wu2020 的 'SUMMARY' / 'INTRODUCTION'）
         # ⚠ 编号优先于全大写是有意的：全大写期刊里 '2.1 ITAM RESTRICTED CARS…' 若被判成
         #   一级，而它的兄弟 '2.2 Something'（首字母大写）判成二级，2.1 就会被当成
         #   "有子标题的容器"、**自己的正文被吞掉**。编号是显式的，比大小写可靠。
+        # ⚠ 固定词表只覆盖**不带点编号**的标题：'2.1 Results' 是 Results 大板块下的
+        #   子节，不能被强制升成 L1（那会把父子关系倒过来）。
         lvl = _num_level(text)
+        nu = _norm_head(text)
+        if lvl != 2 and nu in BODY_L1_HEADINGS:
+            lvl = 1
         out.append({
             'text': text,
             'level': lvl or (1 if upper else 2),
@@ -752,12 +813,53 @@ def sectionize(pdf_path, paper_id=None, debug=False):
     # 但"每篇论文都能出图"是硬要求，所以退一步：**按页切**，每 3 页一节。
     # ⚠ 判据是**覆盖度**，不是节数：Nature Biotechnology 的 Letters 那篇能切出 5 个
     #   （全是方法学小节），看着"有节"，但**正文一点没覆盖到**——只看节数会漏判。
-    _tail = body_end_line if body_end_line is not None else len(lines)
-    body_prose = [l for l in lines[:_tail] if l.role == 'prose' and l.group == body_group]
+    #
+    # ★ 2026-10-25 修（3-C 的另一半）：
+    #   ① 兜底的终点改成**真正的文末**（References/致谢），不是 Methods ——
+    #      J Immunol 把 Methods 放在 Results 前面，拿 Methods 当终点会把正文后半全切掉；
+    #   ② 覆盖度只量"第一个正文标题 → 正文终点"这一段，不把 Methods/References 算进分母；
+    #   ③ 兜底不再只扫前 3 页（旧代码 tail 取到 Methods 那行，实测只覆盖 2 页）。
+    cover_lo = 0
+    if body_heads:
+        first_head_line = body_heads[0]['lines'][0]
+        cover_lo = next((i for i, l in enumerate(lines) if l is first_head_line), 0)
+    hard_end_line = None
+    for h in heads:
+        gi = next((i for i, l in enumerate(lines) if l is h['lines'][0]), None)
+        if gi is None or gi < cover_lo:
+            continue
+        nu = _norm_head(h['text'])
+        if any(nu == e or nu.startswith(e + ' ') for e in HARD_END_HEADINGS):
+            hard_end_line = gi
+            break
+    cover_tail = body_end_line if body_end_line is not None else (
+        hard_end_line if hard_end_line is not None else len(lines))
+    fallback_tail = hard_end_line if hard_end_line is not None else (
+        body_end_line if body_end_line is not None else len(lines))
+    body_prose = [l for l in lines[cover_lo:cover_tail] if l.role == 'prose']
     covered = {id(l) for s in secs for l in (s.get('_body') or [])}
     cover = (sum(1 for l in body_prose if id(l) in covered) / len(body_prose)) if body_prose else 1.0
     if cover < 0.5:
-        fb = _split_by_pages(lines, body_group, body_end_line)
+        fb = _split_by_pages(lines, body_group, fallback_tail)
+        # ★ 2026-10-25：Letters 版式（Nature Biotech 这类）正文很短、内容大头在 Methods，
+        #   而第一个 References 可能出现在 Methods **前面**（这篇 p7 就有 References，
+        #   Methods 在 p8）→ 按第一个文末标题切会切出 0 节。
+        #   兜底的兜底：换**最后一个**文末标题（通常是真的文末），把 Methods 也纳进来。
+        if len(fb) < 2:
+            last_hard = None
+            for h in heads:
+                gi = next((i for i, l in enumerate(lines) if l is h['lines'][0]), None)
+                if gi is None:
+                    continue
+                nu = _norm_head(h['text'])
+                if any(nu == e or nu.startswith(e + ' ') for e in HARD_END_HEADINGS):
+                    last_hard = gi
+            if last_hard is not None and last_hard > (fallback_tail or -1):
+                fb2 = _split_by_pages(lines, body_group, last_hard)
+                if len(fb2) > len(fb):
+                    fb = fb2
+        if not fb:                              # 连最后一个文末标题都没有 → 全文按页切
+            fb = _split_by_pages(lines, body_group, None)
         if fb:
             print('[分节] 正文覆盖度只有 %.0f%%（版式里没有章节标题），退化为按页切分：%d 节'
                   % (cover * 100, len(fb)))
@@ -848,14 +950,71 @@ def sectionize(pdf_path, paper_id=None, debug=False):
     }
 
 
+# ==================================================================== LLM 优先入口
+def _llm_enabled():
+    """是否启用 LLM 分节。默认开；环境变量 / 配置可关（离线或想省钱时）。
+
+    关掉的方式（二选一）：
+      · 环境变量 `PAPERIDE_SECTION_LLM=0`
+      · `paperide.config.json` 顶层写 `"sectionLLM": false`
+    """
+    if (os.environ.get('PAPERIDE_SECTION_LLM') or '').strip() == '0':
+        return False
+    try:
+        from core import adapters
+        cfg = adapters.read_config()
+        if cfg.get('sectionLLM') is False:
+            return False
+    except Exception:
+        pass
+    return True
+
+
+def sectionize_smart(pdf_path, paper_id=None, debug=False, use_llm=None, progress=None):
+    """**LLM 语义分节优先，版式分节兜底**（2026-10-25 主人定的新口径）。
+
+    顺序：
+      1. 先跑一遍版式分节（`sectionize`）——它是兜底，也是 LLM 失败时的结果；
+      2. 模型通读全文，给出章节树（标题 / 层级 / 父节 / 锚点行）；
+      3. 程序按锚点切正文、算页码 → sections.json 同款结构；
+      4. 任何一步失败（没 Key / 网络 / JSON 不合法 / 覆盖率太低）→ 退回第 1 步。
+
+    **绝不因为 LLM 挂了让论文进不了库。**
+    """
+    progress = progress or (lambda m: None)
+    base = sectionize(pdf_path, paper_id=paper_id, debug=debug)
+    base.setdefault('structureSource', 'heuristic')
+    if use_llm is None:
+        use_llm = _llm_enabled()
+    if not use_llm:
+        return base
+    try:
+        from core import structure_ai
+        return structure_ai.build(pdf_path, paper_id=paper_id,
+                                  progress=progress, debug=debug)
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
+        base['structureSource'] = 'heuristic'
+        base['structureError'] = '%s: %s' % (type(e).__name__, e)
+        base.setdefault('warnings', []).append(
+            'AI 分节不可用，已退回版式分节：%s' % str(e)[:180])
+        progress('AI 分节不可用，退回版式分节：%s' % str(e)[:140])
+        return base
+
+
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith('--')]
     debug = '--debug' in sys.argv
     if not args:
         print(__doc__)
         return
-    r = sectionize(args[0], debug=debug)
-    print('\n===== 分节结果：%d 节 =====' % len(r['sections']))
+    if '--llm' in sys.argv:
+        r = sectionize_smart(args[0], debug=debug)
+    else:
+        r = sectionize(args[0], debug=debug)
+    print('\n===== 分节结果：%d 节（%s）====='
+          % (len(r['sections']), r.get('structureSource', 'heuristic')))
     for s in r['sections']:
         print('  %-46s p.%-9s %6d 字  %s'
               % (s['id'][:46], '%d-%d' % tuple(s['pageRange']), s['chars'], s['title'][:44]))

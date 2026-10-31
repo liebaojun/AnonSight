@@ -178,6 +178,22 @@ def needs_solidify(ano_path, payload_dir):
             if not meta or meta.get('sha256') != cur:
                 d.close()
                 return True, '%s 与容器不一致（工作区更新）' % fname
+        # 可选载荷：**双向**比 —— 工作区有 / 容器没有 = 脏（该加进去）；
+        # 工作区没有 / 容器里有 = 也脏（开关关了，该把它从容器里拿掉）。
+        for name, build, _u in P.OPTIONAL_FILES:
+            try:
+                cur = build(payload_dir)
+            except Exception:
+                cur = None
+            meta = (man.get('payload') or {}).get(name)
+            if cur is None:
+                if meta:
+                    d.close()
+                    return True, '%s 已从工作区移除（容器里还留着）' % name
+                continue
+            if not meta or meta.get('sha256') != P._sha(cur):
+                d.close()
+                return True, '%s 与容器不一致（工作区更新）' % name
         d.close()
         return False, '一致'
     except Exception as e:

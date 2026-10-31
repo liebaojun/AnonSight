@@ -11,3 +11,6 @@
 *.jpg binary
 *.ano binary
 *.pdf binary
+
+# GIF 素材同样是二进制（别让 eol 转换碰它们）
+*.gif binary

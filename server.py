@@ -24,6 +24,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import threading
 import time
@@ -400,8 +401,9 @@ _MOD_MTIME = {}
 
 # 作业开跑前要检查的模块（顺序有讲究：P0 的 validator 要先于 pipeline_ai）
 _CORE_MODULES = ['pipeline', 'core.pdftext', 'core.quotefix', 'core.adapters',
-                 'core.locate', 'core.layout', 'core.sectioner',
-                 'core.pipeline_ai', 'core.annotate_ai', 'core.translate_ai']
+                 'core.locate', 'core.layout', 'core.sectioner', 'core.structure_ai',
+                 'core.pipeline_ai', 'core.annotate_ai', 'core.translate_ai',
+                 'core.interpret_ai']       # 解读模式（2026-10-04）
 
 # 指纹表里除内核模块之外**还要盯**的文件：它们不是 import 进来的模块（既不能热重载、
 # 也不该混进 _CORE_MODULES），但"改了没生效"一样会让验收报告验错代码——验收 02 / 04
@@ -488,7 +490,10 @@ def code_version():
     return {'startedAt': time.strftime('%H:%M:%S', time.localtime(_STARTED)),
             'now': time.strftime('%H:%M:%S'),
             'moduleMtimes': mods,
-            'adapter': ad}
+            'adapter': ad,
+            # 给 MCP / 多实例发现用：确认这个服务读的就是我以为的那个论文库
+            'dataDir': paths.DATA,
+            'papersDir': PAPERS}
 
 
 def skeleton(pid):
@@ -515,7 +520,8 @@ def skeleton(pid):
         #   前端显示"第几页"要优先用 `pdfPages`（真实 PDF 页号）。
         #   这是**第四处**组装 section 的地方（另三处在 core/pipeline_ai.py），别只改一处。
         'sections': [{'id': s['id'], 'title': s['title'], 'pageRange': s['pageRange'],
-                      'pdfPages': s.get('pdfPages'),
+                      'pdfPages': s.get('pdfPages'), 'level': s.get('level', 0),
+                      'parent': s.get('parent', ''),
                       'sourceText': s['sourceText'], 'lead': None, 'views': []}
                      for s in sec['sections']],
         'viewsSummary': {}, 'relVocabulary': {'used': []},
@@ -527,9 +533,20 @@ def job_new(kind, paper_id):
     jid = uuid.uuid4().hex[:12]
     with JOBS_LOCK:
         JOBS[jid] = {'id': jid, 'kind': kind, 'paperId': paper_id, 'state': 'running',
-                     'steps': [], 'log': [], 'error': None,
+                     'steps': [], 'log': [], 'error': None, 'progress': 0,
                      'startedAt': time.time(), 'endedAt': None}
     return jid
+
+
+def job_progress(jid, pct):
+    """更新任务进度（0-100），给界面那条进度条用。
+
+    "只知道它在忙、不知道忙到哪儿"是最熬人的 —— 主人 2026-09-27 明确要的。
+    翻译这种跑几分钟的活尤其需要：光一个忙碌动画，用户会怀疑它卡死了。"""
+    with JOBS_LOCK:
+        j = JOBS.get(jid)
+        if j is not None:
+            j['progress'] = max(0, min(100, int(round(pct))))
 
 
 def job_log(jid, msg):
@@ -620,13 +637,18 @@ def run_ingest(jid, pid, pdf_path):
 
     meta['sections'] = 0
     try:
-        job_step(jid, '自动分节', 'running')
-        r = sectioner.sectionize(pdf_path, paper_id=pid)
+        job_step(jid, '自动分节', 'running', 'AI 正在通读全文判结构…')
+        # ★ 2026-10-25：LLM 语义分节优先，版式分节兜底（见 core/sectioner.py:
+        #   sectionize_smart）。没配 Key / 网络不通 / 模型给的锚点对不上 → 自动退回，
+        #   **不会让论文入库失败**。
+        r = sectioner.sectionize_smart(pdf_path, paper_id=pid,
+                                       progress=job_set(jid))
         json.dump(r, open(os.path.join(d, 'sections.json'), 'w', encoding='utf-8'),
                   ensure_ascii=False, indent=1)
         meta['sections'] = len(r['sections'])
         meta['doc'] = r['doc']
-        job_step(jid, '自动分节', 'done', '%d 节' % len(r['sections']))
+        src = 'AI 结构' if r.get('structureSource') == 'llm' else '版式兜底'
+        job_step(jid, '自动分节', 'done', '%d 节（%s）' % (len(r['sections']), src))
     except Exception as e:
         traceback.print_exc()
         job_step(jid, '自动分节', 'failed', str(e)[:120])
@@ -855,7 +877,9 @@ def run_resection(jid, pid):
         job_log(jid, '重新分节…')
         # 「先找 paper.ano 再找 paper.pdf」—— .ano 自己就是合法 PDF（兼容层），
         # 直接交给分节器即可。见 调研/Ano格式-设计方案.md §8.2 第 6 条。
-        r = sectioner.sectionize(ano_pack.paper_file(d), paper_id=pid)
+        job_step(jid, '自动分节', 'running', 'AI 正在通读全文判结构…')
+        r = sectioner.sectionize_smart(ano_pack.paper_file(d), paper_id=pid,
+                                       progress=job_set(jid))
         json.dump(r, open(os.path.join(d, 'sections.json'), 'w', encoding='utf-8'),
                   ensure_ascii=False, indent=1)
         # ⚠ meta.json 也要一起更新：以前这里只改了索引，meta['sections'] 就永远停在上一次
@@ -875,8 +899,314 @@ def run_resection(jid, pid):
             if p['id'] == pid:
                 p['sections'] = len(r['sections'])
         _save_manifest(m)
-        job_step(jid, '自动分节', 'done', '%d 节' % len(r['sections']))
-        job_log(jid, '重切完成：%d 节' % len(r['sections']))
+        job_step(jid, '自动分节', 'done',
+                 '%d 节（%s）' % (len(r['sections']),
+                                 'AI 结构' if r.get('structureSource') == 'llm' else '版式兜底'))
+        job_log(jid, '重切完成：%d 节（%s）'
+                % (len(r['sections']),
+                   'AI 结构' if r.get('structureSource') == 'llm' else '版式兜底'))
+        job_done(jid)
+    except Exception as e:
+        traceback.print_exc()
+        job_done(jid, 'failed', '%s: %s' % (type(e).__name__, e))
+
+
+def babeldoc_cfg():
+    """找 BabelDOC 在哪儿 —— 按顺序试，**绝不写死开发者机器上的绝对路径**。
+
+    为什么要这么找：BabelDOC 连同依赖有 634MB（cv2 113M / scipy 98M / onnxruntime 41M …），
+    塞不进 73MB 的主安装包，所以它是**独立组件**。定位顺序：
+
+      ① 配置里写死的（`paperide.config.json` 的 `babeldoc` 段）—— 用户装在别处时指路
+      ② **程序旁边的组件目录**（`<exe目录>/babeldoc/`）—— 装了「翻译组件」就是这个位置
+      ③ 开发机上的老位置 —— **只在本机真存在时**才认，方便开发调试
+
+    ⚠ 以前这里写死 `E:\\tools\\pdf-inplace-translate\\...`，后果有两层：
+       别人的机器上必然找不到（翻译直接坏），而且**报错会把开发者的本地路径
+       打到界面上** —— 那既是无效信息，也是不该外泄的东西。
+
+    找不到就返回空，由调用方给**人话提示**（告诉用户去装什么，而不是甩一个路径错误）。"""
+    from core import adapters, paths
+    out = {'python': '', 'runner': ''}
+
+    # ① 配置优先
+    try:
+        c = (adapters.read_config() or {}).get('babeldoc') or {}
+        for k in ('python', 'runner'):
+            if c.get(k):
+                out[k] = c[k]
+    except Exception:
+        pass
+
+    # ② 程序旁边的组件目录（打包版 = exe 所在目录；源码版 = 仓库上一级）
+    for base in (os.path.join(paths.data(), 'babeldoc'),
+                 os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                              'babeldoc')):
+        py = os.path.join(base, 'python.exe')
+        py2 = os.path.join(base, 'Scripts', 'python.exe')     # venv 的标准布局
+        rn = os.path.join(base, 'run_babeldoc.py')
+        if not out['python']:
+            for cand in (py, py2):
+                if os.path.exists(cand):
+                    out['python'] = cand
+                    break
+        if not out['runner'] and os.path.exists(rn):
+            out['runner'] = rn
+
+    # ③ 开发机上的老位置（真存在才认；不存在就当没配）
+    if not (out['python'] and out['runner']):
+        dev = r'E:\tools\pdf-inplace-translate'
+        py = os.path.join(dev, 'venv-babeldoc', 'Scripts', 'python.exe')
+        rn = os.path.join(dev, 'run_babeldoc.py')
+        if os.path.exists(py) and os.path.exists(rn):
+            out['python'] = py
+            out['runner'] = rn
+
+    return out
+
+
+def run_translate(jid, pid):
+    """功能 3「生成翻译版 PDF」：跑 BabelDOC 把这一篇译成中文。
+
+    产出两样（都在 `papers/<id>/translation/`）：
+
+      · `blocks.json`   —— 段落级双语块表，给阅读界面做**覆盖层**用（`core/translate_doc.py`）
+      · `paper.zh.pdf`  —— 真·中文 PDF，导出/打印用
+
+    ⚠ 四件必须记住的事（都是踩过的）：
+
+      ① 拿双语数据靠 **`--working-dir`**，且**不加 `--debug`** ——
+         源码 `il_translator_llm_only.py:285` 的判据是 `debug or working_dir`，
+         而 debug 会把日志刷爆。这条一澄清，"要数据"和"避开 4.4GB 中间产物"就不矛盾了。
+      ② **必须 `--openai-thinking disabled`** —— 不关思考的话，思考 token 吃光 max_tokens，
+         译文会被腰斩（交接文档 §七 禁忌之二）。
+      ③ 模型名用 `deepseek-flash`（`deepseek-chat` 已废弃）。
+      ④ 一篇 14 页综述约 **6 分钟**；**同一篇重跑命中 BabelDOC 缓存只要 50 秒、零 API 花费**。
+    """
+    reload_changed_modules()
+    from core import adapters, translate_doc
+    prog = job_set(jid)
+    try:
+        d = safe_paper_dir(pid)
+        if d is None:
+            raise RuntimeError('非法论文 id：%r' % pid)
+
+        # 同一篇**同时只许跑一个翻译** —— 两个 BabelDOC 进程往同一个 `_work` 目录写，
+        # 中间产物会互相覆盖。这个入口不止一处能触发（桌宠菜单、以后的前端按钮），
+        # 手快连点两下也会撞上。
+        with JOBS_LOCK:
+            _busy = [j['id'] for j in JOBS.values()
+                     if j.get('paperId') == pid and j.get('state') == 'running' and j['id'] != jid]
+        if _busy:
+            job_done(jid, 'failed', '这一篇已经有翻译任务在跑了（%s），等它完事' % '、'.join(_busy))
+            return
+
+        cfg = babeldoc_cfg()
+        if not (cfg.get('python') and cfg.get('runner')
+                and os.path.exists(cfg['python']) and os.path.exists(cfg['runner'])):
+            # ★ 这里必须说**人话**。用户不知道 BabelDOC 是什么、更不知道去哪装；
+            #   而且**绝不许把路径打到界面上** —— 旧那句把开发者的 `E:\tools\...`
+            #   原样泄给用户，既是无效信息也是隐私（见 babeldoc_cfg 的注释）。
+            raise RuntimeError(
+                '这一版还没装「全文翻译」组件。\n\n'
+                '翻译引擎（BabelDOC）带 600 多 MB 依赖，没跟主程序打在一起。'
+                '装一次「AnonSight 翻译组件」就能用了 —— 装完不用重启，回来再点这个按钮即可。')
+
+        # AI 接口走 AnonSight 自己那一套 —— 主人在设置里填过一次，不该为翻译再填第二遍
+        c = adapters.read_config() or {}
+        ai = c.get('ai') or {}
+        preset = (ai.get('preset') or 'deepseek').strip()
+        pre = getattr(adapters, 'PRESETS', {}).get(preset) or {}
+        base_url = (ai.get('base_url') or pre.get('base_url') or '').strip()
+        model = (ai.get('model') or pre.get('model') or '').strip()
+        key = adapters.load_key(preset)
+        # ★ BabelDOC 要的是 **OpenAI 兼容的 base**（它自己往后拼 /chat/completions），
+        #   而设置界面那个"接口地址"主人可能填的是 `https://api.deepseek.com`（不带 /v1）——
+        #   原样塞给 BabelDOC 会 404。这里借 AnonSight 自己的 chat_url() 反推一次，
+        #   把"带不带 /v1 / 是否已是全路径"各种写法都归一成 base。
+        _full = adapters.chat_url(base_url)
+        if _full.endswith('/chat/completions'):
+            base_url = _full[:-len('/chat/completions')]
+        if not (base_url and model and key):
+            raise RuntimeError('AI 接口没配全（地址 / 模型名 / Key）——先去设置里填一下')
+
+        outdir = os.path.join(d, 'translation')
+        work = os.path.join(outdir, '_work')
+        os.makedirs(work, exist_ok=True)
+
+        # ★ 交给 BabelDOC 的路径**必须 .pdf 结尾** —— 它按扩展名判类型（main.py:629），
+        #   而 `.ano` 虽然内部就是合法 PDF（PyMuPDF 能直接开），照样被它拒掉。
+        #   实测栽过：退出码 1、「文件不是 PDF」。只有 .ano 的就地复制一份 .pdf。
+        src = os.path.join(d, 'paper.pdf')
+        if not os.path.exists(src):
+            ano = os.path.join(d, 'paper.ano')
+            if not os.path.exists(ano):
+                raise RuntimeError('这篇既没有 paper.pdf 也没有 paper.ano')
+            src = os.path.join(outdir, '_source.pdf')
+            shutil.copyfile(ano, src)
+            prog('这一篇只有 .ano，已复制成 _source.pdf 再交给 BabelDOC')
+
+        cmd = [cfg['python'], cfg['runner'],
+               '--openai', '--openai-model', model,
+               '--openai-base-url', base_url, '--openai-api-key', key,
+               '--openai-thinking', 'disabled',
+               '--lang-in', 'en', '--lang-out', 'zh',
+               '--watermark-output-mode', 'no_watermark',
+               '--skip-scanned-detection',
+               '--working-dir', work,
+               '--files', src, '--output', outdir, '--no-dual']
+
+        job_step(jid, '翻译中（首次约 6 分钟，命中缓存约 1 分钟）', 'running')
+        prog('调用 BabelDOC…')
+        job_progress(jid, 4)
+        env = dict(os.environ, PYTHONIOENCODING='utf-8', PYTHONUTF8='1')
+
+        # ★ `creationflags=CREATE_NO_WINDOW` 是**必须的**（2026-09-27 打包版实测踩到）：
+        #   主程序打包成 GUI 的 exe（没有控制台），而 BabelDOC 是控制台程序 ——
+        #   不给这个标志，Windows 会**给它新建一个控制台**：用户看到的是一个莫名其妙的
+        #   黑窗口，而且那个控制台一旦被关掉/收到 CTRL_CLOSE_EVENT，子进程立刻以
+        #   `0xC000013A`（STATUS_CONTROL_C_EXIT）退出 ——
+        #   表现就是"黑窗口一闪、翻译秒失败、进度条刚冒头就没了"。
+        #   开发版（从终端启动、本就有控制台）完全看不出这个问题。
+        CREATE_NO_WINDOW = 0x08000000
+
+        p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                             text=True, encoding='utf-8', errors='replace',
+                             env=env, cwd=os.path.dirname(cfg['runner']),
+                             creationflags=CREATE_NO_WINDOW)
+        # ★ 逐块读、**`\r` 也算断行**：BabelDOC 的进度条是 `\r` 原地刷新的，
+        #   按 `\n` 分行会把整条进度攒成一行、刷不出来（进度条就成死的了）。
+        #   抓到 `NN%` 就映射到我们这条进度条的 4~88 段（后面还有"整理双语数据"）。
+        _PCT = re.compile(r'(\d{1,3})\s*%')
+        # ⚠ 错误行**必须落进日志**：只按 "每 6 行记一条" 抽稀的话，真正的报错
+        #   会被丢掉，出问题时日志里只剩一堆无用的进度噪音（09-27 就栽在这 ——
+        #   拿到的日志末尾是"调用 BabelDOC…"，完全看不出为什么退出码是 0xC000013A）。
+        _ERR = re.compile(r'error|traceback|exception|failed|fatal|错误|失败|异常', re.I)
+        seen, buf, last_line = 0, '', ''
+        while True:
+            chunk = p.stdout.read(4096)
+            if not chunk:
+                break
+            buf += chunk
+            parts = re.split(r'[\r\n]', buf)
+            buf = parts.pop()                       # 最后一段可能被截断，留到下轮
+            for line in parts:
+                line = line.strip()
+                if not line:
+                    continue
+                last_line = line
+                seen += 1
+                m = _PCT.search(line)
+                if m:
+                    job_progress(jid, 4 + min(100, int(m.group(1))) * 0.84)
+                if m or seen % 6 == 0 or _ERR.search(line):
+                    prog(line[:140])
+        if buf.strip():                             # 收尾：最后一行没换行符时别丢了
+            last_line = buf.strip()
+        rc = p.wait()
+        if rc != 0:
+            raise RuntimeError('BabelDOC 退出码 %s（日志末尾：%s）'
+                               % (rc, (last_line or '')[:120]))
+        job_step(jid, '翻译中（首次约 6 分钟，命中缓存约 1 分钟）', 'done')
+        job_progress(jid, 90)
+
+        job_step(jid, '整理双语数据', 'running')
+        cand = []
+        for root, _dirs, fns in os.walk(work):
+            if 'translate_tracking.json' in fns:
+                cand.append(os.path.join(root, 'translate_tracking.json'))
+        if not cand:
+            raise RuntimeError('没找到 translate_tracking.json —— BabelDOC 可能没跑完')
+        tr = max(cand, key=os.path.getmtime)        # 多个就取最新的那个
+        data, _misses = translate_doc.build(src, tr, verbose=False)
+        json.dump(data, open(os.path.join(outdir, 'blocks.json'), 'w', encoding='utf-8'),
+                  ensure_ascii=False, indent=1)
+        st = data['stats']
+        job_step(jid, '整理双语数据', 'done',
+                 '%d 块 · 匹配率 %.1f%%' % (st['blocks'], st['hitRate']))
+        job_progress(jid, 100)
+        prog('双语块 %d 条（匹配率 %.1f%%，未命中 %d）'
+             % (st['blocks'], st['hitRate'], st['missed']))
+        job_done(jid)
+    except Exception as e:
+        traceback.print_exc()
+        job_done(jid, 'failed', '%s: %s' % (type(e).__name__, e))
+
+
+def run_interpret(jid, pid, force=False):
+    """解读模式：完整解读（主人 2026-10-04）。
+
+    长任务（一次要等模型吐 8~15K token，两分钟起步），前端照旧轮询 /api/jobs/<id>。
+    ⚠ 进度条**故意不报细的百分比** —— 单次模型调用中间没有任何可测的进度，
+    报个假的百分比还不如让前端自己按时间爬（见 index.html 的 interpRamp）。
+    """
+    reload_changed_modules()
+    from core import interpret_ai
+    calls = [0]
+
+    def prog(msg):
+        job_set(jid)(msg)
+        calls[0] += 1
+        job_progress(jid, 8 if calls[0] == 1 else 15)
+
+    try:
+        job_step(jid, '完整解读', 'running', '准备论文全文…')
+        r = interpret_ai.run_interpret(pid, force=force, progress=prog)
+        if r.get('skipped'):
+            job_step(jid, '完整解读', 'done', '已有解读，直接采用')
+        else:
+            job_step(jid, '完整解读', 'done',
+                     '完成：%d 字 · 用时 %.0f 秒' % (r['chars'], r.get('elapsedS') or 0))
+        job_progress(jid, 100)
+        job_done(jid)
+    except Exception as e:
+        traceback.print_exc()
+        job_step(jid, '完整解读', 'failed', str(e)[:90])
+        job_done(jid, 'failed', '%s: %s' % (type(e).__name__, e))
+
+
+def run_interp_index(jid, pid):
+    """解读模式：论文索引（单独一次调用，建立在已有解读之后）。"""
+    reload_changed_modules()
+    from core import interpret_ai
+    try:
+        job_step(jid, '论文索引', 'running', '组装请求…')
+        r = interpret_ai.run_index(pid, progress=lambda m: job_set(jid)(m))
+        job_step(jid, '论文索引', 'done',
+                 '完成：%d 字 · 用时 %.0f 秒' % (r['chars'], r.get('elapsedS') or 0))
+        job_progress(jid, 100)
+        job_done(jid)
+    except Exception as e:
+        traceback.print_exc()
+        job_step(jid, '论文索引', 'failed', str(e)[:90])
+        job_done(jid, 'failed', '%s: %s' % (type(e).__name__, e))
+
+
+def run_figures(jid, pid, pageno):
+    """识图模式（桌宠双击 / 菜单「分析当前页面的论文图片」）。
+
+    一页 1~3 张图，每张一次多模态调用（几秒）；全命中缓存时秒回。
+    长任务照旧：前端轮询 /api/jobs/<id>，完事读 GET /api/papers/<id>/figures?page=N。"""
+    reload_changed_modules()
+    from core import figure_ai
+    try:
+        job_log(jid, '开始识别第 %d 页的论文图片' % pageno)
+        job_step(jid, '识别图片', 'running', '准备中…')
+
+        def prog(msg, frac=0.0):
+            job_log(jid, msg)
+            job_progress(jid, 5 + frac * 92)
+
+        r = figure_ai.analyze_page(pid, pageno, progress=prog)
+        if r.get('empty'):
+            job_step(jid, '识别图片', 'done', '这一页没有论文图片')
+        else:
+            job_step(jid, '识别图片', 'done', '%d 张' % len(r.get('figures', [])))
+        with JOBS_LOCK:
+            if JOBS.get(jid) is not None:
+                JOBS[jid]['summary'] = {'page': pageno, 'figures': len(r.get('figures', [])),
+                                        'empty': bool(r.get('empty'))}
+        job_progress(jid, 100)
         job_done(jid)
     except Exception as e:
         traceback.print_exc()
@@ -1059,6 +1389,38 @@ class Handler(SimpleHTTPRequestHandler):
             with JOBS_LOCK:
                 j = JOBS.get(m.group(1))
             return self._json(j or {'error': '这个任务已经结束了'}, 200 if j else 404)
+        # 双语块表 —— 功能 1「切换中英文版 PDF」的数据源。
+        # ⚠ 必须排在下面那条通配的 `/(\w+)` 路由**之前**，否则会被它先吃掉。
+        m = re.match(r'^/api/papers/([\w\-.]+)/translation$', path)
+        if m:
+            d = self._pdir(m.group(1))
+            fp = os.path.join(d, 'translation', 'blocks.json')
+            if not os.path.exists(fp):
+                return self._json({'error': '这一篇还没有中文版', 'needGenerate': True}, 404)
+            try:
+                return self._json(json.load(open(fp, encoding='utf-8')))
+            except Exception as e:
+                return self._json({'error': '双语数据读不出来：%s' % e}, 500)
+        # 中文 PDF —— 切中英文版时前端换的就是这个源（见 P0/index.html 的 zhSwapPdf）。
+        # ⚠ 必须排在下面那条通配 `/(\w+)` 之前。
+        m = re.match(r'^/api/papers/([\w\-.]+)/translation/pdf$', path)
+        if m:
+            tdir = os.path.join(self._pdir(m.group(1)), 'translation')
+            cand = sorted(f for f in (os.listdir(tdir) if os.path.isdir(tdir) else [])
+                          if f.lower().endswith('.pdf'))
+            if not cand:
+                return self._json({'error': '这一篇还没有中文 PDF'}, 404)
+            return self._file(os.path.join(tdir, cand[0]), 'application/pdf')
+        # 解读模式（2026-10-04）：一整个包（解读 + 索引 + 对话 + 总账）。
+        # ⚠ 必须排在下面那条通配的 `/(\w+)` 路由**之前**（和 /translation 同一个道理）。
+        #   没跑过解读也返回结构（saved=False），别用 404 判空。
+        m = re.match(r'^/api/papers/([\w\-.]+)/interpret$', path)
+        if m:
+            pid = m.group(1)
+            if not os.path.isdir(self._pdir(pid)):
+                return self._json({'error': '找不到这一篇：%s' % pid}, 404)
+            from core import interpret_ai
+            return self._json(interpret_ai.state(pid))
         m = re.match(r'^/api/papers/([\w\-.]+)/(\w+)$', path)
         if m:
             pid, what = m.group(1), m.group(2)
@@ -1105,6 +1467,14 @@ class Handler(SimpleHTTPRequestHandler):
                 if not os.path.exists(p):
                     return self._json({'paper': pid, 'count': 0, 'items': [], 'empty': True})
                 return self._file(p)
+            if what == 'figures':
+                # 识图模式读结果：`GET /api/papers/<id>/figures?page=N`。
+                # 没分析过就 `{'cached': False}`——前端据此去 POST 起任务（不是报错）。
+                page = int((q.get('page') or ['0'])[0] or 0)
+                if page <= 0:
+                    return self._json({'error': 'page 要给正数（PDF 第几页）'}, 400)
+                from core import figure_ai
+                return self._json(figure_ai.read_page(pid, page))
             if what == 'pdf':
                 # 前端取 PDF 走这条。`.ano` 本身就是 PDF，直接给它 —— 磁盘上不必再留一份
                 from core import ano_pack
@@ -1184,6 +1554,34 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json({'id': pid, 'job': jid}, 202)
 
         # 重新分节（分节器改进后不用重新上传 PDF）
+        # 「生成翻译版 PDF」（功能 3）—— 桌宠右键菜单调它。
+        # 长任务：一篇 14 页综述约 6 分钟（命中 BabelDOC 缓存约 1 分钟），
+        # 前端照旧轮询 /api/jobs/<id> 看进度。
+        #
+        # ⚠ 路径**必须**与划词翻译的 /translate 分开（2026-10-04 修，血泪）：
+        #   09-27 把这条任务路由插在了划词路由**前面**，两条正则又写得一模一样
+        #   （`^/api/papers/<id>/translate$`），而这条**无条件 return** ——
+        #   于是划词 POST /translate 全被它吃掉、下面那条成了死代码：
+        #   每次划词不但一个字的翻译都拿不到（回的是 {"job": ...}，前端当垃圾丢掉），
+        #   还在后台**偷偷起一个整篇 BabelDOC 任务**。主人 10-04 实测：
+        #   选几个词 = 一串 translate 任务，并发的那几条直接把翻译目录踩烂（failed）。
+        #   现在两条路由各占各的路径，谁也别想再遮住谁。
+        m = re.match(r'^/api/papers/([\w\-.]+)/translate_doc$', path)
+        if m:
+            pid = m.group(1)
+            if not os.path.isdir(self._pdir(pid)):
+                return self._json({'error': '找不到这一篇'}, 404)
+            # 同一篇正在跑就复用那个 job（跟上面 /analyze 一个道理）：
+            # 手快连点两下不该跑两遍 —— 两遍会互相踩同一个 _work 目录，
+            # 10-04 实测并发的那几条全部秒 failed。
+            with JOBS_LOCK:
+                for j in JOBS.values():
+                    if j['paperId'] == pid and j['kind'] == 'translate' and j['state'] == 'running':
+                        return self._json({'job': j['id'], 'reused': True}, 200)
+            jid = job_new('translate', pid)
+            threading.Thread(target=run_translate, args=(jid, pid), daemon=True).start()
+            return self._json({'job': jid})
+
         m = re.match(r'^/api/papers/([\w\-.]+)/resection$', path)
         if m:
             pid = m.group(1)
@@ -1195,6 +1593,8 @@ class Handler(SimpleHTTPRequestHandler):
             return self._json({'id': pid, 'job': jid}, 202)
 
         # 阅读时的即时翻译（P4-a 入口 B）
+        # ⚠ 这条路径**只归划词**。（整篇翻译的任务路由是 /translate_doc，见上；
+        #   两条路由曾经挤在同一路径上，划词被遮死了一个星期 —— 别再合并它们。）
         m = re.match(r'^/api/papers/([\w\-.]+)/translate$', path)
         if m:
             pid = m.group(1)
@@ -1214,6 +1614,114 @@ class Handler(SimpleHTTPRequestHandler):
                 traceback.print_exc()
                 return self._json({'error': '%s: %s' % (type(e).__name__, e)}, 502)
             return self._json(r)
+
+        # ---------- 解读模式（2026-10-04，主人拍板）----------
+        # 起「完整解读」任务（首次进入自动跑；`force:true` = 「重新解读」，要花钱）。
+        # 同一篇正在跑就复用那个 job —— 跟 /analyze、/translate_doc 一个规矩：
+        # 手快连点两下不该跑两遍（两遍 = 白烧一遍整篇的钱，还会互相覆盖结果文件）。
+        m = re.match(r'^/api/papers/([\w\-.]+)/interpret$', path)
+        if m:
+            pid = m.group(1)
+            if not os.path.isdir(self._pdir(pid)):
+                return self._json({'error': '找不到这一篇：%s' % pid}, 404)
+            n = int(self.headers.get('Content-Length') or 0)
+            try:
+                body = json.loads(self.rfile.read(n).decode('utf-8')) if n else {}
+            except Exception as e:
+                return self._json({'error': '不是合法 JSON: %s' % e}, 400)
+            with JOBS_LOCK:
+                for j in JOBS.values():
+                    if j['paperId'] == pid and j['kind'] == 'interpret' and j['state'] == 'running':
+                        return self._json({'job': j['id'], 'reused': True}, 200)
+            jid = job_new('interpret', pid)
+            threading.Thread(target=run_interpret,
+                             args=(jid, pid, bool(body.get('force'))), daemon=True).start()
+            return self._json({'job': jid})
+
+        # 起「论文索引」任务（单独一次调用；要先有完整解读）
+        m = re.match(r'^/api/papers/([\w\-.]+)/interpret/index$', path)
+        if m:
+            pid = m.group(1)
+            if not os.path.isdir(self._pdir(pid)):
+                return self._json({'error': '找不到这一篇：%s' % pid}, 404)
+            with JOBS_LOCK:
+                for j in JOBS.values():
+                    if j['paperId'] == pid and j['kind'] == 'interpret' and j['state'] == 'running':
+                        return self._json({'job': j['id'], 'reused': True}, 200)
+            jid = job_new('interpret', pid)
+            threading.Thread(target=run_interp_index, args=(jid, pid), daemon=True).start()
+            return self._json({'job': jid})
+
+        # 追问（**同步**）：对话要"一问一答"的直接感，不值得为它再套一层轮询。
+        # 服务端是 ThreadingHTTPServer，一次追问占一个线程不挡别人。
+        # 慢是慢在首轮的预填/冷缓存（几十秒），命中缓存后是秒回——前端有"思考中"占位。
+        m = re.match(r'^/api/papers/([\w\-.]+)/interpret/ask$', path)
+        if m:
+            pid = m.group(1)
+            if not os.path.isdir(self._pdir(pid)):
+                return self._json({'error': '找不到这一篇：%s' % pid}, 404)
+            n = int(self.headers.get('Content-Length') or 0)
+            try:
+                body = json.loads(self.rfile.read(n).decode('utf-8')) if n else {}
+            except Exception as e:
+                return self._json({'error': '不是合法 JSON: %s' % e}, 400)
+            from core import interpret_ai
+            try:
+                r = interpret_ai.ask(pid, body.get('q'), body.get('sel'), body.get('page'),
+                                     fig=body.get('fig'))
+            except (RuntimeError, ValueError) as e:
+                return self._json({'error': str(e)}, 409)
+            except Exception as e:
+                traceback.print_exc()
+                return self._json({'error': '%s: %s' % (type(e).__name__, e)}, 502)
+            return self._json(r)
+
+        # 「把上下文存进 .ano」开关（主人 2026-10-04 新要求）：
+        # 开/关都**当场同步** paper.ano（关掉 = 把容器里那份拿掉，见 interpret_ai.set_share）。
+        m = re.match(r'^/api/papers/([\w\-.]+)/interpret/share$', path)
+        if m:
+            pid = m.group(1)
+            if not os.path.isdir(self._pdir(pid)):
+                return self._json({'error': '找不到这一篇：%s' % pid}, 404)
+            n = int(self.headers.get('Content-Length') or 0)
+            try:
+                body = json.loads(self.rfile.read(n).decode('utf-8')) if n else {}
+            except Exception as e:
+                return self._json({'error': '不是合法 JSON: %s' % e}, 400)
+            from core import interpret_ai
+            return self._json(interpret_ai.set_share(pid, bool(body.get('on'))))
+
+        # 识图模式：分析某一页的论文图片（桌宠双击 / 菜单）。
+        # 长任务（一页 1~3 张图、每张一次多模态调用），照 /translate_doc 那套：
+        # 前端轮询 /api/jobs/<id> 看进度，完事读 GET /api/papers/<id>/figures?page=N。
+        m = re.match(r'^/api/papers/([\w\-.]+)/figures$', path)
+        if m:
+            pid = m.group(1)
+            if not os.path.isdir(self._pdir(pid)):
+                return self._json({'error': '找不到这一篇'}, 404)
+            n = int(self.headers.get('Content-Length') or 0)
+            try:
+                body = json.loads(self.rfile.read(n).decode('utf-8')) if n else {}
+            except Exception as e:
+                return self._json({'error': '不是合法 JSON: %s' % e}, 400)
+            try:
+                page = int(body.get('page') or 0)
+            except Exception:
+                page = 0
+            if page <= 0:
+                return self._json({'error': 'page 要给正数（PDF 第几页）'}, 400)
+            # 同一篇同一页正在跑就复用（连点两下不该跑两遍、不该白烧两遍钱）
+            with JOBS_LOCK:
+                for j in JOBS.values():
+                    if (j['paperId'] == pid and j['kind'] == 'figures' and j['state'] == 'running'
+                            and j.get('page') == page):
+                        return self._json({'job': j['id'], 'reused': True}, 200)
+            jid = job_new('figures', pid)
+            with JOBS_LOCK:
+                if JOBS.get(jid) is not None:
+                    JOBS[jid]['page'] = page
+            threading.Thread(target=run_figures, args=(jid, pid, page), daemon=True).start()
+            return self._json({'job': jid})
 
         # 改标题（论文库管理页）。写两处：`papers/<id>/meta.json` + `papers/index.json`。
         # 为什么必须两处都写：meta.json 是**真源**（阅读器的 h1 / 浏览器标签 /

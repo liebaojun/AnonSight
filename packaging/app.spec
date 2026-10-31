@@ -36,6 +36,18 @@ for _f in P0_KEEP:
     _p = os.path.join(ROOT, 'P0', _f)
     if os.path.exists(_p):
         datas.append((_p, 'P0'))
+
+# ★ 桌宠（爱音）的四张状态 GIF —— **必须单独写一行**，不能塞进上面那个白名单：
+#   循环里目标写死 `'P0'`，而 PyInstaller 对**目录**源是把"目录里的内容"**平铺**到目标下
+#   （不保留目录名）。实测：塞进白名单时 `idle.gif` 会落成 `P0/idle.gif`，
+#   而前端按 `pet/idle.gif` 引用 → 四张素材全 404、桌宠在安装版里一片空白。
+#   显式写成 `'P0/pet'` 才会真正落进子目录。
+#
+#   ⚠ 2026-09-27 连踩两次：① 加桌宠时忘了同步白名单（素材整个没进包）；
+#     ② 补进去又因为"目录平铺"落错了地方。**以后往 P0/ 加静态资源，这两处都要看。**
+_pet = os.path.join(ROOT, 'P0', 'pet')
+if os.path.isdir(_pet):
+    datas.append((_pet, 'P0/pet'))
 _cfg = os.path.join(ROOT, 'paperide.config.json')
 if os.path.exists(_cfg):
     datas.append((_cfg, '.'))
@@ -64,7 +76,8 @@ datas.append((_pchk, os.path.join('P0', '_extract')))
 HIDDEN = [
     'core.adapters', 'core.annotate_ai', 'core.layout', 'core.locate',
     'core.pdftext', 'core.pipeline_ai', 'core.quotefix', 'core.sectioner',
-    'core.translate_ai', 'core.ano_pack', 'core.ano_solidify', 'core.paths',
+    'core.structure_ai', 'core.translate_ai', 'core.ano_pack', 'core.ano_solidify',
+    'core.paths',
 ]
 
 #: 明确踢掉的大块头（**确认平台没用到的**，带着只会让 exe 变大）

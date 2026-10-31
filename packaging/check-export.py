@@ -132,9 +132,11 @@ def main():
     except Exception:
         pass
     targets += [
-        # 开发者自己的仓库路径与用户目录 —— **本机现算**，不写死
-        (os.path.dirname(HERE).encode(), '开发者的仓库路径'),
+        (b'E:\\\\PaperIDE', '开发者的仓库路径（转义写法）'),
+        (b'E:/PaperIDE', '开发者的仓库路径（正斜杠）'),
+        (b'E:\\PaperIDE', '开发者的仓库路径'),
         (os.path.expanduser('~').encode(), '开发者的用户目录'),
+        (b'D:\\\\Data\\\\Users', '开发者的个人目录'),
     ]
     targets = [(n, w) for n, w in targets if n]
 

@@ -39,7 +39,13 @@ BASE = os.path.dirname(os.path.abspath(sys.executable)) if FROZEN else _HERE
 RES = getattr(sys, '_MEIPASS', _HERE)
 
 #: 用户数据**唯一**的根：`papers/`、`.keys.json`
-DATA = BASE
+#:
+#: `PAPERIDE_DATA` 是可选的覆盖（2026-10-25 加，给 MCP / 无界面后台用）：
+#:   · 打包版默认 = exe 旁边；
+#:   · 源码模式默认 = 仓库根；
+#:   · 设了环境变量 → 用它。这样 `python packaging/app.py --headless` 也能
+#:     直接服务 `E:\AnonSight` 里的真实论文库，而不用把整套程序装到源码目录。
+DATA = os.environ.get('PAPERIDE_DATA') or BASE
 
 
 def res(*parts):

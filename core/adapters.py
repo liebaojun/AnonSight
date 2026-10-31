@@ -27,6 +27,7 @@ PaperIDE · AI 适配器层（P3-b / 2026-09-20 通用化）
   · 返回是信封，模型原话在 result 字段
   · ⚠ --bare 不加载 CLAUDE.md → **prompt 必须自包含**（铁律/词表/格式全写进 prompt 文件）
 """
+import base64
 import json
 import os
 import re
@@ -230,6 +231,28 @@ _HTTP_HINTS = {
 }
 
 
+#: 扩展名 → mime。只认图片（识图用）；这个 MIME 只是 data URI 里的声明，不影响功能。
+_IMG_MIME = {'.png': 'image/png', '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg',
+             '.webp': 'image/webp', '.gif': 'image/gif', '.bmp': 'image/bmp'}
+
+
+def _image_bytes(item):
+    """把 `raw_images` 的每一项规整成 (bytes, mime)。支持 bytes / 路径 / (二者, mime)。"""
+    mime = None
+    if isinstance(item, (tuple, list)):
+        src = item[0]
+        mime = item[1] if len(item) > 1 else None
+    else:
+        src = item
+    if isinstance(src, (bytes, bytearray)):
+        return bytes(src), (mime or 'image/png')
+    with open(src, 'rb') as f:
+        data = f.read()
+    if not mime:
+        mime = _IMG_MIME.get(os.path.splitext(str(src))[1].lower(), 'image/png')
+    return data, mime
+
+
 class OpenAICompatAdapter(Adapter):
     """**通用的 OpenAI 兼容接口**（`POST <base>/chat/completions`）。
 
@@ -295,10 +318,11 @@ class OpenAICompatAdapter(Adapter):
                           '（不填也能用：打开阅读 .ano、看章节分析与思想图都不受影响）')
 
     # ---------------------------------------------------------------- 请求体
-    def _body(self, prompt):
+    def _body(self, prompt, content=None):
         b = {
             'model': self.model,
-            'messages': [{'role': 'user', 'content': prompt}],
+            # `content` 传了就按"内容块数组"发（多模态那一路），否则就是纯文本
+            'messages': [{'role': 'user', 'content': content if content is not None else prompt}],
             'temperature': self.temperature,
             'max_tokens': self.max_tokens,
         }
@@ -341,13 +365,15 @@ class OpenAICompatAdapter(Adapter):
         return json.load(urllib.request.urlopen(req, timeout=self.timeout))
 
     # ---------------------------------------------------------------- 主流程
-    def raw(self, prompt):
+    def _run(self, body):
+        """发一个已经拼好的请求体、按需降级重试、把回话文本拿出来。
+
+        （`raw()` / `raw_images()` 共用这一段——文本和带图两条路只差"body 怎么拼"。）"""
         url = chat_url(self.base_url)
         headers = {'Content-Type': 'application/json'}
         if self.key:
             headers['Authorization'] = 'Bearer ' + self.key
 
-        body = self._body(prompt)
         first_err = None
         relaxed = []
         for _ in range(4):
@@ -401,6 +427,34 @@ class OpenAICompatAdapter(Adapter):
         if isinstance(c, list):
             c = ''.join(p.get('text', '') for p in c if isinstance(p, dict))
         return c or ''
+
+    def raw(self, prompt):
+        return self._run(self._body(prompt))
+
+    def raw_images(self, prompt, images):
+        """**带图**的请求（识图模式用）。
+
+        `images` 每项支持两种写法：
+            · (bytes, mime)      —— mime 可给 None，默认按 png
+            · '路径' 或 (路径, mime) —— mime 不给就按扩展名猜
+        统一转成 OpenAI 兼容的 `image_url` + data URI。
+        实测 2026-10-04：本机配置的 deepseek-flash 收这个格式（真图描述正确）。
+
+        ⚠ 图**别原样塞大图**：先用 PIL 缩到 ~1280px 宽再进来（调用方负责），
+          一张手机截图原图能烧掉几千 token，对论文配图没必要。"""
+        content = []
+        if prompt:
+            content.append({'type': 'text', 'text': prompt})
+        for it in images:
+            data, mime = _image_bytes(it)
+            content.append({'type': 'image_url',
+                            'image_url': {'url': 'data:%s;base64,%s'
+                                                  % (mime, base64.b64encode(data).decode('ascii'))}})
+        return self._run(self._body(prompt, content=content))
+
+    def json_images(self, prompt, images):
+        """带图 + 要 JSON 输出。"""
+        return extract_json(self.raw_images(prompt, images))
 
     def _http_error(self, code, text, relaxed=()):
         hint = _HTTP_HINTS.get(code, '对方接口报错了')

@@ -17,6 +17,7 @@ PaperIDE · P4-a 翻译（两个入口，同一套 API、同一个缓存）
 """
 import json
 import os
+import re
 import sys
 import threading
 import time
@@ -75,22 +76,57 @@ def save_nb(pid, d):
         os.replace(tmp, p)
 
 
+_NON_ALNUM = re.compile(r'[^a-z0-9]')
+
+
+def _norm(s):
+    """词/句的**身份归一化**（标点、空白、连字符、大小写一律不参与身份）。
+
+    ⚠ 必须与前端 `normEn()`（P0/index.html:3185）**逐字符一致**——
+    前端一旦本地命中就**根本不调后端**（index.html:3995），两边判据不一致会出现
+    "前端说命中、后端说没有"的精神分裂。
+    """
+    return _NON_ALNUM.sub('', (s or '').lower())
+
+
+def _term_variants(term):
+    """词条可能写成 `A / B`（一条多写法）—— 任一写法对上，就算这个词。"""
+    return [_norm(v) for v in re.split(r'\s*/\s*', term or '') if v.strip()]
+
+
 def find_sentence(nb, sentence):
-    s = ' '.join((sentence or '').split()).strip()
+    """整句精确匹配（归一化后相等）。
+
+    ⚠ 不做"子串包含"：前端 `findSentence` 以前是双向包含，于是**任何包含选区的缓存句
+    都能来顶包**（1-C 号病根）。这里从建立起就是精确匹配，保持住。
+    """
+    s = _norm(sentence)
     if not s:
         return None
     for x in nb['sentences']:
-        if ' '.join((x.get('en') or '').split()) == s:
+        if _norm(x.get('en')) == s:
             return x
     return None
 
 
-def find_term(nb, text):
-    t = (text or '').strip().lower()
-    if not t:
+def find_term(nb, text, sentence=None):
+    """按 **(词 + 句) 复合键** 找词条 —— 主人 2026-09-22 定的设计律，见 11-待办文档 §问题1。
+
+    为什么必须带句子：`Apple` 在 `I love eating Apple` 里是水果、在 `Apple released a new chip`
+    里是公司。只凭"词一样"就复用缓存，等于把上一次的语境义硬套到这一次
+    （主人原话："这里直接划出来就变成我喜欢吃苹果公司了"）。
+
+    **语境未知**（条目没有 `exampleEn`，实测 paper-7 有 68 条、paper-4 有 47 条）→ 不参与命中：
+    宁可重新翻一次，也不能拿一个不知道出处的释义来顶包。
+    """
+    t = _norm(text)
+    ns = _norm(sentence)
+    if not t or not ns:                 # 不知道语境 → 不查（宁可不命中，绝不跨句复用）
         return None
     for g in nb['glossary']:
-        if (g.get('term') or '').strip().lower() == t:
+        if t not in _term_variants(g.get('term')):
+            continue
+        if _norm(g.get('exampleEn')) == ns:
             return g
     return None
 
@@ -126,8 +162,12 @@ def translate(pid, text, sentence=None, page=None, section_id=None):
     前端据此**不把它写进本地词表**（服务端这边也不写），两边判据一致。"""
     nb = load_nb(pid)
     sentence = sentence or text
+    # ★ 必须是**同一语境内的绑定命中**（主人 09-22 设计律）：
+    #   老代码是 `hit_s and hit_t` —— 两张表**各查各的**再拼起来，于是"当前句恰好被预热过、
+    #   而这个词只在**别的语境**出现过"时，返回的是「当前句的译文 + 别处该词的释义」这个荒谬组合
+    #   （09-22 补查确证的第二条来路）。现在 find_term 带着句子查，两把钥匙配同一把锁。
     hit_s = find_sentence(nb, sentence)
-    hit_t = find_term(nb, text)
+    hit_t = find_term(nb, text, sentence)
     if hit_s and hit_t:
         return {'sentenceZh': hit_s['zh'], 'termZh': hit_t.get('zh', ''),
                 'kind': hit_t.get('kind', '单词'), 'warn': hit_t.get('warn', ''),
@@ -177,7 +217,7 @@ def prewarm(pid, progress=None, limit=None):
     # 标注层的中文释义直接并入术语表（这部分不用再问模型）
     added_g = 0
     for it in items:
-        if find_term(nb, it['text']):
+        if find_term(nb, it['text'], it.get('quote')):
             continue
         nb['glossary'].append({
             'id': 'g.' + ''.join(ch for ch in it['text'].lower() if ch.isalnum())[:32],

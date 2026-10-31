@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 """
-Ano 格式 · 打包 / 解包 / 识别（`.ano` 容器 = 合法 PDF：高亮走标准注释，其余数据走 PDF 附件）
+Ano 格式 · 打包 / 解包 / 识别（`E:\\PaperIDE\\调研\\Ano格式-设计方案.md` 的参考实现）
 
 `.ano` = 一个标准 PDF + 6 份 JSON 载荷（藏在 `/EmbeddedFiles`）+ 一批标准 `/Highlight` 注释。
 **本模块只做"PDF 路径 ↔ 载荷目录"的双向搬运**，不碰平台、不碰前端。
@@ -33,6 +33,82 @@ PAYLOAD_FILES = [
 ]
 REQUIRED = [n for n, _ in PAYLOAD_FILES]       # 全部必需
 OPTIONAL_PREFIX = 'Ano.9'                      # 90+ 留给自由扩展，加载路径不认
+
+
+# ---------------------------------------------------------------- 可选载荷
+# 主人 2026-10-04 新要求（解读模式那边的上下文管理）：有些载荷**带不带由用户开关决定**，
+# 比如"把和 AI 的对话也存进 .ano，发给别人时能看见交流过程"。
+#
+# 形状：(附件名, builder(payload_dir) → bytes|None, unpacker(dest_dir, data, overwrite) → [文件名])
+#
+#   · builder 在**打包/固化时现算**"该不该带"——判据通常是用户开关（存在工作区 JSON 里），
+#     不是"文件在不在"。所以**别往工作区再多存一份重复文件**（双源必漂，08-13 的教训），
+#     需要整形就在 builder 里拼。
+#   · builder 必须是**确定性**的：同样的工作区 → 同样的字节。否则 needs_solidify 的
+#     哈希比对永远判"脏"，每次启动都想固化一遍（别塞时间戳！）。
+#   · 缺了**不算坏文件**：verify 不查它们、unpack 遇到才还原。
+#   · unpacker 负责还原进工作区；一个附件可以拆回多个文件（解读那份 = 解读+对话两个）。
+
+def _build_interpret(payload_dir):
+    """Ano.80：解读模式上下文（带不带看解读面板那个开关，见 interpret_ai.pack_for_ano）。"""
+    try:
+        from . import interpret_ai
+    except ImportError:
+        import interpret_ai
+    return interpret_ai.pack_for_ano(payload_dir)
+
+
+def _unpack_interpret(dest_dir, data, overwrite=False):
+    """Ano.80 → 还原 interpret.json + interpret-chat.json（别人发来的 .ano 里就带着对话）。"""
+    try:
+        from . import interpret_ai
+    except ImportError:
+        import interpret_ai
+    return interpret_ai.unpack_from_ano(dest_dir, data, overwrite=overwrite)
+
+
+def _build_figure(payload_dir):
+    """Ano.70：识图缓存（figure-analysis.json）——**有就带**（需求 §五.4：以图片指纹为键）。
+
+    确定性整形（那边踩过的坑照踩一遍）：
+      · 剥 `savedAt` / 每条的 `at`（时间戳）——不然哈希永远判脏，每次启动都想固化；
+      · 剥 `usage`（token 记账是**本机**的运行痕迹，跟图内容无关，别塞给收到 .ano 的人）；
+      · sort_keys + 紧凑分隔符 —— 同一份缓存每次打出来一个字节都不差。
+
+    跨机器有效性：指纹 = 裁图 PNG 的 sha1，而 .ano 里嵌着同一份 PDF → 对方打开同一张图
+    算出的指纹一致 → **双击直接读缓存**（这正是把它打进容器的意义）。"""
+    p = os.path.join(payload_dir, 'figure-analysis.json')
+    if not os.path.exists(p):
+        return None
+    with open(p, encoding='utf-8') as f:
+        d = json.load(f)
+    d.pop('savedAt', None)
+    for v in (d.get('figures') or {}).values():
+        if isinstance(v, dict):
+            v.pop('at', None)
+            v.pop('usage', None)
+    for v in (d.get('pages') or {}).values():
+        if isinstance(v, dict):
+            v.pop('at', None)
+    return json.dumps(d, ensure_ascii=False, sort_keys=True,
+                      separators=(',', ':')).encode('utf-8')
+
+
+def _unpack_figure(dest_dir, data, overwrite=False):
+    """Ano.70 → 还原 `figure-analysis.json`（别人发来的 .ano 里带着图分析，双击即读缓存）。"""
+    p = os.path.join(dest_dir, 'figure-analysis.json')
+    if os.path.exists(p) and not overwrite:
+        return []
+    with open(p, 'wb') as f:
+        f.write(data)
+    return ['figure-analysis.json']
+
+
+OPTIONAL_FILES = [
+    # 翻译双语数据（Ano.60）预留给 `E:\tools\pdf-inplace-translate` 那条线，还没接。
+    ('Ano.70-figure-analysis.json', _build_figure, _unpack_figure),
+    ('Ano.80-interpret.json', _build_interpret, _unpack_interpret),
+]
 
 FORMAT = 'Ano'
 VERSION = 1
@@ -74,8 +150,21 @@ def _fail(*errs, **kw):
 
 
 def _read_payload(dirpath):
-    """读载荷目录 → {附件名: bytes}，顺带做大小上限检查"""
+    """读载荷目录 → {附件名: bytes}，顺带做大小上限检查。
+
+    末尾把**可选载荷**也收进来（见 OPTIONAL_FILES）：builder 说"该带"才带，
+    返回 None 就跳过（相当于容器里不该有这个附件）。"""
     out, total = {}, 0
+
+    def _put(name, data, what):
+        nonlocal total
+        if len(data) > MAX_EMB_PER_FILE:
+            raise ValueError('%s 超过单文件上限 %d MB' % (what, MAX_EMB_PER_FILE >> 20))
+        total += len(data)
+        if total > MAX_EMB_TOTAL:
+            raise ValueError('载荷合计超过上限 %d MB' % (MAX_EMB_TOTAL >> 20))
+        out[name] = data
+
     for name, fname in PAYLOAD_FILES:
         if fname is None:
             continue
@@ -84,12 +173,14 @@ def _read_payload(dirpath):
             continue
         with open(p, 'rb') as f:
             data = f.read()
-        if len(data) > MAX_EMB_PER_FILE:
-            raise ValueError('%s 超过单文件上限 %d MB' % (fname, MAX_EMB_PER_FILE >> 20))
-        total += len(data)
-        if total > MAX_EMB_TOTAL:
-            raise ValueError('载荷合计超过上限 %d MB' % (MAX_EMB_TOTAL >> 20))
-        out[name] = data
+        _put(name, data, fname)
+    for name, build, _unpack_one in OPTIONAL_FILES:
+        try:
+            data = build(dirpath)
+        except Exception:
+            data = None                     # 可选载荷生成失败 → 当"不带"，别拖垮整个打包
+        if data:
+            _put(name, data, name)
     return out
 
 
@@ -457,7 +548,21 @@ def verify(ano_path, expect=None):
                 errs.append('manifest 记的页数(%s) 与实际(%d) 不符'
                             % (man['pdf']['pages'], doc.page_count))
             for n, meta in (man.get('payload') or {}).items():
-                if n in hashes and meta.get('sha256') and meta['sha256'] != hashes[n]:
+                if n not in names or not meta.get('sha256'):
+                    continue
+                cur = hashes.get(n)
+                if cur is None:                   # 可选载荷（不在 REQUIRED 那轮里）→ 现取现算
+                    try:
+                        data = doc.embfile_get(n)
+                        total += len(data)
+                        if len(data) > MAX_EMB_PER_FILE or total > MAX_EMB_TOTAL:
+                            errs.append('载荷超过安全上限')
+                            break
+                        cur = _sha(data)
+                    except Exception as e:
+                        errs.append('读不出 %s：%s' % (n, e))
+                        continue
+                if cur != meta['sha256']:
                     errs.append('载荷哈希不符：%s' % n)
         except Exception as e:
             errs.append('manifest 解析失败：%s' % e)
@@ -595,6 +700,23 @@ def unpack(ano_path, dest_dir, *, overwrite=False):
             with open(p, 'wb') as f:
                 f.write(data)
             written.append(fname)
+        # 可选载荷（在容器里才还原，缺了正常；口径与上面的必需载荷一致）——见 OPTIONAL_FILES
+        for name, _build_it, unpack_one in OPTIONAL_FILES:
+            if name not in names:
+                continue
+            data = doc.embfile_get(name)
+            total += len(data)
+            if len(data) > MAX_EMB_PER_FILE or total > MAX_EMB_TOTAL:
+                return _fail('载荷超过安全上限，已中止')
+            try:                                   # L1：顶层能解析
+                json.loads(data.decode('utf-8'))
+            except Exception as e:
+                return _fail('%s 不是合法 JSON：%s' % (name, e))
+            try:
+                got = unpack_one(dest_dir, data, overwrite=overwrite) or []
+            except Exception as e:
+                return _fail('%s 还原失败：%s' % (name, e))
+            written.extend(got)
         # 自检：payload 里记的哈希必须对得上
         for n, meta in (man.get('payload') or {}).items():
             if n in names and meta.get('sha256'):

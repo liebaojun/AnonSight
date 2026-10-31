@@ -17,7 +17,7 @@ import os
 import shutil
 import sys
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ROOT = r'E:\PaperIDE'
 sys.path.insert(0, ROOT)
 
 TMP = os.path.join(ROOT, 'tools', '_tmp', 'graph_test')

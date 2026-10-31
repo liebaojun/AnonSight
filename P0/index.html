@@ -343,6 +343,18 @@ button.tbtn:hover{background:var(--grid)}
 
 .tabs button.on{background:var(--surface-1); color:var(--ink); font-weight:600; box-shadow:0 1px 3px rgba(0,0,0,.10)}
 
+/* 节 tab 的层级（2026-10-25，治 3-D）：L2/L3 是细分小节，字号略小、带 ↳ 前缀；
+   父节名由 JS 拼进按钮文字里（"Results · CCL5 is stored…"），这里只做视觉弱化。 */
+.tabs button.lv2{font-size:11.5px; color:var(--ink-2); padding:4px 9px}
+
+.tabs button.lv2::before{content:'↳'; opacity:.55; margin-right:4px}
+
+.tabs button.lv3{font-size:11px; color:var(--ink-2); padding:3px 8px}
+
+.tabs button.lv3::before{content:'↳↳'; opacity:.45; margin-right:4px; letter-spacing:-2px}
+
+.tabs button.lv2.on, .tabs button.lv3.on{color:var(--ink)}
+
 /* 同一节里的多张图（概念网 / 级联图 …） */
 
 .tabs.small{padding:2px; border-style:dashed}
@@ -452,6 +464,124 @@ body.clearing .textLayer span.mk-hl{cursor:pointer; outline:1px dashed var(--rel
 
 #paneExcerpt{padding:14px 16px}
 
+/* ==================== 解读模式（左栏 AI 对话）· 主人 2026-10-04 ====================
+
+   进入解读模式后，#paneTrans 变成一列"聊天窗"：头（固定）+ 消息（滚）+ 底部（固定）。
+
+   所以要把这个 pane 从"整块滚动"改成 **flex 三行布局** —— 不改的话输入框会跟着
+   消息一起滚走。`body.interp-on` 时才改，退出后原样（正常模式的翻译卡不受影响）。 */
+
+body.interp-on #paneTrans{padding:0; display:flex; flex-direction:column; overflow:hidden}
+
+body.interp-on #transBody{display:none}
+
+#interpBody{flex:1 1 auto; display:flex; flex-direction:column; min-height:0}
+
+/* ⚠ 没有下面这条，`hidden` 会失效 —— 作者样式 `display:flex` 盖过 UA 的
+   `[hidden]{display:none}`（作者规则赢，与选择器权重无关），退出解读模式后
+   面板赖着不走，和翻译卡叠在一起（2026-10-04 冒烟实测抓到的）。 */
+#interpBody[hidden]{display:none}
+
+#interpHead{flex:0 0 auto; padding:10px 14px 8px; border-bottom:1px solid var(--border)}
+
+#interpHead .tbtn{font-size:11.5px; padding:4px 9px}
+
+.ip-row{display:flex; align-items:center; gap:6px}
+
+.ip-row b{font-size:13px; font-weight:650}
+
+.ip-spacer{flex:1 1 auto}
+
+.ip-chip{font-size:10px; padding:1px 7px; border-radius:99px; background:var(--grid); color:var(--ink-2)}
+
+.ip-stats{font-size:11px; color:var(--muted); margin-top:4px; line-height:1.55}
+
+.ip-share{display:flex; align-items:center; gap:6px; margin-top:8px; font-size:11.5px; color:var(--ink-2); cursor:pointer; user-select:none; line-height:1.4}
+
+.ip-share input{accent-color:var(--n-mech); margin:0; flex:0 0 auto}
+
+#interpMsgs{flex:1 1 auto; overflow-y:auto; min-height:0; padding:12px 14px; display:flex; flex-direction:column; gap:10px}
+
+#interpFoot{flex:0 0 auto; border-top:1px solid var(--border); padding:8px 12px}
+
+/* 引用条：划选后出现在提问框上方（黄底 = 和 PDF 里的划词高亮同一个色，认得出来） */
+
+#interpQuote .iq{display:flex; gap:6px; align-items:flex-start; font-size:11.5px; color:var(--ink-2); background:var(--hl); border:1px solid var(--border); border-radius:8px; padding:5px 8px; margin-bottom:6px}
+
+#interpQuote .iq b{flex:0 0 auto; color:var(--ink)}
+
+#interpQuote .iq span{flex:1 1 auto; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap}
+
+#interpQuote .iq button{flex:0 0 auto; border:none; background:none; cursor:pointer; color:var(--muted); font-size:13px; padding:0 2px; line-height:1}
+
+.ip-ask{display:flex; gap:8px; align-items:flex-end}
+
+#interpInput{flex:1 1 auto; resize:vertical; min-height:38px; max-height:170px; font:inherit; font-size:12.5px; line-height:1.5; padding:7px 9px; border:1px solid var(--border); border-radius:9px; background:var(--page); color:var(--ink)}
+
+#interpInput:focus{outline:none; border-color:var(--n-mech)}
+
+#btnInterpSend{flex:0 0 auto; padding:8px 14px}
+
+/* 消息区：解读/索引是"文档卡"；追问是两边气泡 */
+
+.ip-sec{border:1px solid var(--border); border-radius:11px; padding:10px 12px; background:var(--surface-1)}
+
+.ip-sec-h{display:flex; align-items:center; gap:6px; font-size:11.5px; color:var(--muted); margin-bottom:7px; flex-wrap:wrap}
+
+.ip-sec-h .ip-spacer{flex:1 1 auto}
+
+.ip-you{align-self:flex-end; max-width:92%; background:var(--n-mech); color:#fff; border-radius:11px 11px 4px 11px; padding:8px 11px; font-size:12.5px; line-height:1.6; white-space:pre-wrap; word-break:break-word}
+
+.ip-sel{font-size:11px; color:var(--ink-2); border-left:3px solid rgba(255,255,255,.55); padding:2px 8px; margin:2px 0 6px; background:rgba(255,255,255,.14); border-radius:0 6px 6px 0; white-space:pre-wrap; max-height:72px; overflow:hidden}
+
+.ip-ai{max-width:100%; background:var(--page); border:1px solid var(--border); border-radius:11px 11px 11px 4px; padding:9px 12px}
+
+.ip-meta{font-size:10.5px; color:var(--muted); margin-top:6px}
+
+.ip-sys{font-size:11.5px; color:var(--rel-neg); padding:4px 2px}
+
+.ip-hello{font-size:12.5px; color:var(--muted); line-height:1.8; padding:6px 2px}
+
+/* 模型回话的轻量 Markdown 渲染（interpMd）的排版。**不用第三方库** ——
+   这一层只要读得顺：标题/列表/引用/表格/代码块。全部经 esc0 转义后拼出来，
+   模型回话里的 HTML 一律当文字显示。 */
+
+.ip-md{font-size:12.5px; line-height:1.78; color:var(--ink); word-break:break-word}
+
+.ip-md h1,.ip-md h2,.ip-md h3,.ip-md h4{margin:13px 0 6px; line-height:1.4}
+
+.ip-md h1{font-size:15.5px}
+
+.ip-md h2{font-size:14px}
+
+.ip-md h3{font-size:13px}
+
+.ip-md h4,.ip-md h5,.ip-md h6{font-size:12.5px; color:var(--ink-2)}
+
+.ip-md p{margin:6px 0}
+
+.ip-md ul,.ip-md ol{margin:6px 0; padding-left:20px}
+
+.ip-md li{margin:2px 0}
+
+.ip-md blockquote{margin:6px 0; padding:4px 10px; border-left:3px solid var(--grid); color:var(--ink-2)}
+
+.ip-md pre{margin:8px 0; padding:8px 10px; background:var(--page); border:1px solid var(--border); border-radius:8px; overflow-x:auto; font-size:11.5px; line-height:1.55}
+
+.ip-md code{font-size:11.5px; background:var(--grid); padding:0 4px; border-radius:4px}
+
+.ip-md pre code{background:none; padding:0}
+
+.ip-md table{border-collapse:collapse; margin:8px 0; font-size:11.5px; display:block; max-width:100%; overflow-x:auto}
+
+.ip-md th,.ip-md td{border:1px solid var(--border); padding:3px 8px; text-align:left; vertical-align:top}
+
+.ip-md th{background:var(--grid); font-weight:650}
+
+.ip-md hr{border:none; border-top:1px dashed var(--border); margin:12px 0}
+
+.ip-md .sp{height:6px}
+
 
 
 /* 翻译卡片 */
@@ -533,6 +663,11 @@ body.clearing .textLayer span.mk-hl{cursor:pointer; outline:1px dashed var(--rel
   color:var(--ink-2); cursor:pointer; font-size:15px; line-height:1; padding:0;
 
 }
+
+/* 专心阅读时图列被收成 0 宽，这个按钮会被 overflow:hidden 裁掉（09-19 验收抓到的
+   "点不到、退不出来"）；顶栏的「退出专心」是正路，这里干脆隐藏，避免留一个看得见
+   却点不着的假按钮。 */
+#chartCol.focus #btnCollapse{display:none}
 
 #btnCollapse:hover{background:var(--grid); color:var(--ink)}
 
@@ -1639,11 +1774,314 @@ main.panel-open #detail{
 
 }
 
+/* ==================== 桌宠（爱音）· 主人 2026-09-27 ====================
+
+   它是**页面内的浮动交互键**（不是独立窗口）：开 AnonSight 才有，关掉就没了。
+   fixed 定位 —— 滚 PDF 时它待在原地；z-index 压在三栏之上，但不挡顶栏按钮。
+
+   ⚠ 别给 left/top 加 transition：拖动时会跟手不及，看着像"漂移"。 */
+
+.pet{position:fixed; right:22px; bottom:22px; z-index:90; width:280px; height:280px;
+
+     cursor:grab; user-select:none; -webkit-user-drag:none; touch-action:none;
+
+     filter:drop-shadow(0 8px 18px rgba(20,24,40,.30));
+
+     /* 动效（主人 2026-09-27 要的：单击/双击弹性形变、拖拽微量变形）
+
+        ⚠ 弹性用 cubic-bezier 的**过冲**（1.56 > 1），不写 JS 逐帧 ——
+        一条曲线就有弹簧感，被打断时还会自然接着弹。
+
+        ⚠ transform **只做视觉变形，绝不参与位置计算** —— 位置永远走 left/top
+        （petPlace 用的是 offsetWidth，不受 transform 影响；petSavePos 也刻意不碰 rect）。 */
+
+     transition:transform .3s cubic-bezier(.34,1.56,.64,1);
+
+     transform-origin:50% 84%}      /* 支点压在人物脚下：缩放像"踩地弹一下"，而不是原地胀缩 */
+
+.pet.press{transform:scale(.9); transition:transform .09s ease-out}
+
+.pet.dragging{transition:none}      /* 拖动要跟手，别让过渡拖后腿 */
+
+.pet.pop{animation:petPop .44s cubic-bezier(.34,1.56,.64,1)}
+
+@keyframes petPop{0%{transform:scale(.85)} 55%{transform:scale(1.1)} 100%{transform:scale(1)}}
+
+/* ---------- 状态切换：双层交叉缩放（2026-10-31）----------
+
+   旧层放大到 1.06 淡出、新层从 0.92 弹到 1 淡入 —— 两条动线**反向**，
+   眼睛读成"翻页"，不会出对称缩放那种双影叠在一起的感觉。
+
+   ⚠ 时长走 CSS 变量：进忙碌要快（像"立刻开工"），出忙碌要缓。 */
+.pet{--pet-in:190ms; --pet-out:150ms}
+.pet.fast{--pet-in:120ms; --pet-out:100ms}
+.pet.slow{--pet-in:220ms; --pet-out:180ms}
+
+.pet .pet-layer{position:absolute; inset:0; width:100%; height:100%; display:block;
+  pointer-events:none; -webkit-user-drag:none; opacity:0;
+  transform-origin:50% 84%;           /* 支点压在脚下，缩放像踩地弹，不是原地胀缩 */
+  backface-visibility:hidden}
+
+.pet .pet-layer.is-on{opacity:1}
+
+.pet .pet-layer.is-in{animation:petLayerIn var(--pet-in) cubic-bezier(.2,.9,.3,1.15) both}
+
+.pet .pet-layer.is-out{animation:petLayerOut var(--pet-out) cubic-bezier(.4,0,1,1) both}
+
+@keyframes petLayerIn{from{opacity:0;transform:scale(.92)}to{opacity:1;transform:scale(1)}}
+
+@keyframes petLayerOut{from{opacity:1;transform:scale(1)}to{opacity:0;transform:scale(1.06)}}
+
+/* 忙碌态轻轻呼吸（幅度压在 4% —— GIF 自己就有动作，再多就晕了）。
+   ⚠ 只在过渡**结束之后**才加 .is-settled，否则会和 is-in 抢 animation 属性。 */
+.pet.busy .pet-layer.is-settled{animation:petBreathe 1.7s ease-in-out infinite}
+
+@keyframes petBreathe{50%{transform:scale(1.04)}}
+
+/* ---------- 切换特效 ---------- */
+.pet-fx{position:absolute; inset:0; pointer-events:none; overflow:visible}
+
+.pet-fx i{position:absolute; display:block; opacity:0}
+
+/* 翻译态：青色小方块上飘（呼应那张 ⇄ 卡片） */
+.pet-fx .fx-zh{width:6px; height:6px; border-radius:1px; background:#3FB6C9;
+  animation:petFxRise 430ms cubic-bezier(.2,.7,.3,1) forwards}
+
+@keyframes petFxRise{
+  0%{opacity:0; transform:translate(0,0) scale(.5)}
+  22%{opacity:.95}
+  100%{opacity:0; transform:translate(var(--dx,0px),-34px) scale(1)}
+}
+
+/* 识图态：紫色圆环从镜片位置扩散 */
+.pet-fx .fx-figure{left:50%; top:38%; width:34px; height:34px; margin:-17px 0 0 -17px;
+  border-radius:50%; border:2px solid #8A6BE0; opacity:0;
+  animation:petFxRing 470ms cubic-bezier(.2,.7,.3,1) forwards}
+
+@keyframes petFxRing{
+  0%{opacity:0; transform:scale(.35)}
+  18%{opacity:.9}
+  100%{opacity:0; transform:scale(1.55)}
+}
+
+/* 解读态：暖黄小气泡弹出后消散 */
+.pet-fx .fx-explain{left:18%; top:26%; width:18px; height:13px; border-radius:9px;
+  background:#F2A93B; opacity:0;
+  animation:petFxBubble 480ms cubic-bezier(.2,.9,.3,1.3) forwards}
+
+@keyframes petFxBubble{
+  0%{opacity:0; transform:scale(.35)}
+  28%{opacity:.95; transform:scale(1.12)}
+  60%{opacity:.9; transform:scale(1)}
+  100%{opacity:0; transform:scale(.85) translateY(-7px)}
+}
+
+/* 忙碌态：三道速度线横向掠过 */
+.pet-fx .fx-busy{left:8%; width:24px; height:2px; border-radius:2px;
+  background:linear-gradient(90deg, rgba(216,220,228,0) 0%, #D8DCE4 60%, rgba(216,220,228,0) 100%);
+  opacity:0; animation:petFxStreak 320ms ease-out forwards}
+
+@keyframes petFxStreak{
+  0%{opacity:0; transform:translateX(0) scaleX(.6)}
+  25%{opacity:.95}
+  100%{opacity:0; transform:translateX(74px) scaleX(1.25)}
+}
+
+/* 系统开了"减少动态效果"就整套关掉 */
+@media (prefers-reduced-motion: reduce){
+  .pet .pet-layer.is-in, .pet .pet-layer.is-out,
+  .pet.busy .pet-layer.is-settled, .pet-fx i{animation:none !important}
+}
+
+.pet.dragging{cursor:grabbing}
+
+.pet.busy{cursor:progress}
+
+/* 忙碌进度条 —— 主人 2026-09-27 的三条要求一次做齐：
+
+     ① **不要跟桌宠重叠**（挡着看不清）→ 贴桌宠**正上方**，上面放不下就挪到正下方
+     ② **要有百分比数字**
+     ③ **要说清在干什么**（"翻译论文" / "一键分析" …）
+
+   位置由 JS 跟着桌宠走，所以桌宠被拖到哪儿它跟到哪儿。 */
+
+.pet-bar{position:fixed; z-index:91; pointer-events:none;
+
+         min-width:132px; padding:7px 10px 8px; border-radius:9px;
+
+         background:rgba(20,24,40,.87); color:#fff;
+
+         box-shadow:0 6px 20px rgba(20,24,40,.30); font-size:11.5px; line-height:1.3}
+
+.pet-bar .pb-top{display:flex; align-items:center; justify-content:space-between;
+
+                 gap:10px; margin-bottom:6px; white-space:nowrap}
+
+.pet-bar .pb-what{opacity:.92}
+
+.pet-bar .pb-pct{font-weight:700; font-variant-numeric:tabular-nums}
+
+.pet-bar .pb-track{height:5px; border-radius:99px; overflow:hidden;
+
+                   background:rgba(255,255,255,.22)}
+
+.pet-bar .pb-track i{display:block; height:100%; width:0; border-radius:99px;
+
+                     background:linear-gradient(90deg,#ffb3cf,#ff5c8a);
+
+                     transition:width .45s cubic-bezier(.3,.9,.3,1)}
+
+/* ---------- 中英切换走「换 PDF 源」，不在这里做覆盖层 ----------
+
+   2026-09-27 试过一版 HTML 覆盖层（把中文块绝对定位盖回原文位置），**实测效果很差**：
+   一个块塞一整段中文，块内换行位置跟原文对不上，必然错乱；没被翻译的块还会露英文。
+   主人当场否掉，改走他早说好的退路——直接换成 BabelDOC 出的中文 PDF。见 zhSwapPdf()。 */
+
+/* ---------- 切到中文版时，藏掉所有"按原文坐标画的层" ----------
+
+   中文 PDF 是引擎**重新排版**的，而标注/搜索框/内部链接全都钉在**英文原文的坐标**上，
+   位置必然对不上（主人 2026-09-27 一眼看出来："都切换成中文了，那些彩色的标注
+   肯定就不在原位了"）。把标注重新定位到中文文本上要跟原文做位置匹配 ——
+   主人原话"工作量太大得不偿失"，所以直接藏。
+
+   ⚠ 只是 CSS 藏，**标注数据一个字没动**，切回英文立刻原样回来。 */
+
+body.zh-mode .textLayer .mk-box,
+body.zh-mode .textLayer .mk-find,
+body.zh-mode .pdf-link{display:none}
+
+.pet-menu{position:fixed; z-index:91; min-width:206px; padding:6px;
+
+          background:var(--page); border:1px solid var(--border); border-radius:10px;
+
+          box-shadow:0 12px 34px rgba(20,24,40,.22); font-size:13px; color:var(--ink);
+
+          animation:petMenuIn .18s ease-out}
+
+@keyframes petMenuIn{from{opacity:0; transform:translateY(-6px) scale(.97)}}
+
+.pet-menu button{display:block; width:100%; text-align:left; padding:8px 11px; border:0;
+
+                 background:none; border-radius:7px; cursor:pointer; color:inherit;
+
+                 font:inherit; line-height:1.4}
+
+.pet-menu button:hover{background:var(--grid)}
+
+.pet-menu button:disabled{opacity:.45; cursor:not-allowed}
+
+.pet-menu button:disabled:hover{background:none}
+
+.pet-menu .pet-sep{height:1px; margin:5px 6px; background:var(--border)}
+
+.pet-menu .pet-hint{padding:5px 11px 3px; color:var(--muted); font-size:11.5px}
+
+/* 图片分析栏 —— 右栏里**独立的一栏**（主人 2026-09-27 要的）。
+
+   为什么不做浮窗：浮在 PDF 上既占地方又装不下几个字，读的时候还得不停挪它。
+   做成右栏的一栏就能跟其他栏目并列、还能拖宽度，信息量随窗口给。
+
+   ⚠ 宽度走 `--fw`（由 rszFig 把手写），跟图列的 `--rw` 是**两个独立变量** ——
+     合成一个的话，拖哪个都会把另一个带着动。 */
+
+#figCol{flex:0 0 var(--fw, 430px); min-width:200px; max-width:calc(100vw - 620px);
+
+        display:flex; flex-direction:column; min-height:0; overflow:hidden;
+
+        border-left:1px solid var(--border); background:var(--surface-1)}
+
+#figCol[hidden],#rszFig[hidden]{display:none}
+
+.fig-head{display:flex; align-items:center; justify-content:space-between; gap:8px;
+
+          flex:0 0 auto; padding:10px 13px; border-bottom:1px solid var(--border);
+
+          font-size:12.5px; font-weight:600; color:var(--ink)}
+
+.fig-close{border:0; background:none; cursor:pointer; font-size:14px; color:var(--muted);
+
+           line-height:1; padding:2px 6px; border-radius:5px}
+
+.fig-close:hover{background:var(--grid); color:var(--ink)}
+
+.fig-body{flex:1 1 auto; min-height:0; overflow:auto; padding:13px 15px;
+
+          font-size:13px; line-height:1.78; color:var(--muted)}
+
+.fig-body b{color:var(--ink)}
+
+/* 识图结果（2026-10-04）：每张图一块 + 组统括块。颜色全走既有变量，深浅模式都吃。 */
+
+.fig-hint{color:var(--muted); font-size:12.5px; line-height:1.8}
+
+.fig-err{color:var(--rel-neg)}
+
+.fig-meta{color:var(--muted); font-size:11.5px; margin-bottom:9px}
+
+.fig-card{border:1px solid var(--border); border-radius:10px; padding:11px 12px;
+
+          margin-bottom:11px; background:var(--page); color:var(--muted)}
+
+.fig-card h4{margin:0 0 6px; font-size:13.5px; color:var(--ink)}
+
+.fig-sec{font-size:12.5px; line-height:1.78; margin-top:7px}
+
+.fig-k{display:block; font-size:11px; color:var(--muted); margin-bottom:1px}
+
+.fig-group{border:1px solid var(--border); border-left:3px solid var(--n-mech);
+
+           border-radius:8px; padding:9px 11px; margin-bottom:12px;
+
+           font-size:12.5px; background:var(--surface-1); color:var(--muted)}
+
+.fig-cap{margin-top:9px; font-size:12px; color:var(--muted)}
+
+.fig-cap summary{cursor:pointer}
+
+/* 「追问这张图」：挂进左栏解读对话（2026-10-04） */
+
+.fig-acts{margin-top:10px}
+
+.fig-ask{border:1px solid var(--border); background:var(--surface-1); color:var(--ink);
+
+         border-radius:8px; padding:4px 10px; font-size:12px; cursor:pointer}
+
+.fig-ask:hover{background:var(--grid)}
+
 </style>
 
 </head>
 
 <body>
+
+<!-- ==================== 桌宠（爱音）====================
+
+     页面内的浮动交互键：单击切中英文 · 双击看图分析 · 右键出菜单 · 按住可拖。
+
+     ⚠ 必须放在主 <script> **之前** —— 脚本里 petInit() 直接找元素，不等 DOMContentLoaded。 -->
+
+<div id="pet" class="pet" title="单击：切中英文版 · 双击：看图分析 · 右键：更多 · 按住可拖动">
+
+  <!-- 双图层：切换状态时新旧各占一层，交叉缩放淡出淡入（2026-10-31）
+       ⚠ 必须是两层，单层换 src 会瞬间换帧，没法做过渡。 -->
+  <img id="petImg" class="pet-layer is-on" src="pet/idle.gif" alt="爱音" draggable="false">
+
+  <img id="petImgB" class="pet-layer" alt="" aria-hidden="true" draggable="false">
+
+  <!-- 切换特效的挂载点（青色方块 / 紫色圆环 / 黄色气泡 / 速度线） -->
+  <div id="petFx" class="pet-fx" aria-hidden="true"></div>
+
+</div>
+
+<div id="petMenu" class="pet-menu" hidden></div>
+
+<div id="petBar" class="pet-bar" hidden>
+
+  <div class="pb-top"><span class="pb-what" id="petBarWhat">处理中</span><b class="pb-pct" id="petBarPct">0%</b></div>
+
+  <div class="pb-track"><i id="petBarFill"></i></div>
+
+</div>
 
 
 
@@ -1707,7 +2145,63 @@ main.panel-open #detail{
 
     </div>
 
-    <div class="lpane" id="paneTrans"><div id="transBody"></div></div>
+    <div class="lpane" id="paneTrans"><div id="transBody"></div>
+
+      <!-- ==================== 解读模式 · 对话界面（主人 2026-10-04）====================
+
+           左栏「翻译」页签里藏着的第二张脸：进解读模式时它顶掉 transBody，
+           退出时原样还回来（transBody 一个字不动，划词翻译那套行为零变化）。
+
+           三块：头部（标题/账目/重跑/索引/分享开关）· 中间滚动区（解读+索引+对话）·
+           底部（引用条 + 提问框）。布局见 CSS 里 `解读模式` 一段。 -->
+
+      <div id="interpBody" hidden>
+
+        <div id="interpHead">
+
+          <div class="ip-row">
+
+            <b id="interpTitle">论文解读</b>
+
+            <span id="interpSaveChip" class="ip-chip" hidden>已保存</span>
+
+            <span class="ip-spacer"></span>
+
+            <button class="tbtn" id="btnInterpIndex" hidden>建立索引</button>
+
+            <button class="tbtn" id="btnInterpRedo" hidden>重新解读</button>
+
+          </div>
+
+          <div id="interpStats" class="ip-stats"></div>
+
+          <label class="ip-share" title="打开后：解读和对话会同时写进这一篇的 .ano 文件。把 .ano 发给别人时，对方打开就能看到你和 AI 的交流过程；关掉会当场把它从 .ano 里拿掉。">
+
+            <input type="checkbox" id="interpShare"> 把解读与对话存进 .ano（打包带走 · 发给别人也能看）
+
+          </label>
+
+        </div>
+
+        <div id="interpMsgs"></div>
+
+        <div id="interpFoot">
+
+          <div id="interpQuote" hidden></div>
+
+          <div class="ip-ask">
+
+            <textarea id="interpInput" rows="2" placeholder="就这篇论文提问…（先在中间 PDF 里划选，可以把原文带进问题）"></textarea>
+
+            <button class="tbtn" id="btnInterpSend">发送</button>
+
+          </div>
+
+        </div>
+
+      </div>
+
+    </div>
 
     <div class="lpane" id="paneExcerpt" hidden>
 
@@ -1949,6 +2443,29 @@ main.panel-open #detail{
 
     <aside id="detail"></aside>
 
+
+    <!-- 图片分析栏：右栏里**独立的一栏**（主人 2026-09-27 要的 —— 不要浮在 PDF 上的死弹窗，
+         要能跟其他栏目并列、能拖宽，读的时候才装得下信息）。默认收起，双击桌宠才展开。
+
+         ⚠ 必须放在 `#right` **内部**：它靠右栏这个 flex 容器的宽度自然撑开；
+           放到外面就成了 main 的兄弟节点，右栏宽度根本不跟着变（踩过一次）。 -->
+
+    <div class="rsz" id="rszFig" hidden title="拖动调整图片分析栏宽度"></div>
+
+    <aside id="figCol" hidden>
+
+      <div class="fig-head">
+
+        <span>论文图片分析</span>
+
+        <button class="fig-close" id="figCloseBtn" title="关闭（桌宠也会回到常驻）">✕</button>
+
+      </div>
+
+      <div class="fig-body" id="figBody"></div>
+
+    </aside>
+
   </section>
 
 </main>
@@ -2024,9 +2541,9 @@ main.panel-open #detail{
 
        读一篇陌生领域的论文时，不用先在脑子里把整篇的骨架搭好。</p>
 
-    <p><b>把 PDF 拖到页面上</b>就能入库。平台会自动切节，逐节抽出概念与它们之间的关系，
+    <p><b>把 PDF 拖到页面上</b>就能入库。平台会用 <b>AI 语义分节</b>（程序提候选 + 模型通读全文判结构），
 
-       给全文打上表达标注，并把译文准备好。</p>
+       逐节抽出概念与它们之间的关系，给全文打上表达标注，并把译文准备好。</p>
 
 
 
@@ -2065,6 +2582,29 @@ main.panel-open #detail{
           不过就带着错误重试</li>
 
       <li>你看到的图，<b>是通过校验才画得出来的</b></li>
+
+    </ul>
+
+
+
+    <h3>新增功能（2026-09-27 · 10-04 · 10-25）</h3>
+
+    <ul>
+
+      <li><b>全文翻译 / 中英切换</b>：桌宠右键「生成翻译版 PDF」→ BabelDOC 生成保留排版的中文版；
+          「切换中英文版 PDF」保持页码/缩放/滚动位置；中文模式自动隐藏标注、停划词。</li>
+
+      <li><b>桌宠「爱音」</b>：页面内浮动；单击切中英文、双击识图、右键菜单、按住可拖；
+          忙碌时显示进度。</li>
+
+      <li><b>识图模式</b>：双击桌宠 / 右键「分析当前页面的论文图片」→ 每张图给
+          「画了什么 / 内容与结论 / 重点看哪 / 趋势」；可「追问这张图」（随附原图）。</li>
+
+      <li><b>解读模式</b>：右键「解读模式」→ 左栏 AI 对话；首次完整解读，之后追问；
+          可建论文索引；可把解读与对话存进 <code>.ano</code>。</li>
+
+      <li><b>AI 语义分节（2026-10-25）</b>：标题改名、少一节、字号变化也能认；失败自动退回版式分节；
+          节 tab 显示两级层级（<code>↳ 父节 · 细分节</code>）。</li>
 
     </ul>
 
@@ -2199,7 +2739,15 @@ const URL_NOTE  = API ? API + '/notebook'    : './notebook.json';
 
 const URL_ANN   = API ? API + '/annotations' : './annotations-wu2020.json';
 
-const URL_PDF   = API ? API + '/pdf'         : './wu2020.pdf';
+/* ⚠ 用 `let` 不用 `const` —— 切中英文时要**换 PDF 源**（换成 BabelDOC 出的中文版），
+   切回英文再换回来。见下方的 zhSwapPdf()。 */
+const URL_PDF_EN = API ? API + '/pdf' : './wu2020.pdf';
+let   URL_PDF    = URL_PDF_EN;
+
+/* 换中英源期间为 true。`initPdf()` 里有一段"回到上次读到的那一页"（400ms 后
+   `pdfPageJump(last)`）—— 那是给**打开论文**准备的，换中英时会把刚还原好的
+   精确位置一把推到那一页顶部，必须让它跳过。见 zhSwapPdf()。 */
+let ZH_SWAPPING = false;
 
 
 
@@ -2889,7 +3437,25 @@ function init(data){
 
     const b = document.createElement('button');
 
-    b.textContent = s.title;
+    // 层级（2026-10-25）：LLM/新版分节器给 level + parent；老 graph.json 没有这两个字段
+    // → lv=0，按钮文字与行为跟以前**完全一样**（不能把老论文全渲染成"细分小节"）。
+    const lv = (s.level === 1 || s.level === 2 || s.level === 3) ? s.level : 0;
+
+    b.dataset.level = lv || '';
+
+    if (lv > 1) b.classList.add('lv' + lv);
+
+    let label = s.title;
+
+    if (lv > 1 && s.parent && !String(label).toLowerCase().startsWith(String(s.parent).toLowerCase())) {
+
+      label = s.parent + ' · ' + label;
+
+    }
+
+    b.textContent = label;
+
+    if (lv > 1) b.title = s.parent ? ('细分小节（属于「' + s.parent + '」）') : '细分小节';
 
     b.dataset.sid = s.id;
 
@@ -3758,6 +4324,12 @@ document.addEventListener('dragstart', e => {
 
 async function onSelect(ev){
 
+  // 中文模式下**不做划词翻译**：底下是引擎重排过的中文 PDF，文字层里是「兼容汉字」
+  // （U+F900 区），划出来是一串怪字符；而且这条流水线本来就是"读英文时查词"用的。
+  // 要划词就切回英文（主人 09-27 要求中文模式藏标注，同一笔账）。
+
+  if (ZH_PDF_ON) return;
+
   const sel = window.getSelection();
 
   /* ⚠ 清除模式和取词**共用这个入口**，但两者的"失败期望"完全相反：
@@ -3808,6 +4380,20 @@ async function onSelect(ev){
   const snap = snapSelectionToWord(range);
 
   if (snap) text = snap.text;
+
+  /* ★ 解读模式（主人 2026-10-04）：划词**不弹翻译卡**，改成"引用给左栏的对话"。
+
+     这一段必须放在**清除模式之后**（清除是显式开关，上面已经 return 掉了）、
+     放在**取词管线之后**（preciseRange + snap 与正常模式共用同一条，取词质量一致）。
+
+     ⚠ 正常模式**一个字都没变**：INTERP.on 为假时这一行直接跳过，
+       后面 showTranslation 那一路（10-04 刚修好 hint/段界三个根因的）原样执行。 */
+
+  if (INTERP.on){
+
+    interpAddQuote(text, range); return;
+
+  }
 
   await showTranslation(text, range);
 
@@ -3980,7 +4566,7 @@ async function showTranslation(text, range){
 
   const sent = findSentence(sentence) || findSentence(text);
 
-  const terms = lookupTerms(text);
+  const terms = lookupTerms(text, sentence);
 
   // ⚠ **句译文和词义要各自判断，不能只挂在句子上**：
 
@@ -4036,6 +4622,24 @@ async function liveTranslate(text, sentence, page){
 
     if (r.error){ curSel.pending = false; curSel.apiError = r.error; }
 
+    /* ★ 回包**结构不对**要当失败显示，不许静默咽掉（2026-10-04 修）：
+
+       09-27 起 POST /translate 被"整篇翻译"的任务路由遮住（见 server.py 的注释），
+       回的是 `{"job": ...}`。下面这段旧代码读不到 sentenceZh / termZh 就当成"什么都没有"——
+       卡片永远停在"（这一句还没有译文）"，一声不吭。主人划了十来次、界面上零反馈，
+       只能来问"是不是坏了"。
+
+       正常回包**必有**这两个键之一（cached / refused 场景也一样带着），
+       一个都没有 = 这根本不是翻译结果。宁可报错，不许装死。 */
+
+    else if (!('sentenceZh' in r) && !('termZh' in r)){
+
+      curSel.pending = false;
+
+      curSel.apiError = '服务端回了意外的结果：' + JSON.stringify(r).slice(0, 80);
+
+    }
+
     else {
 
       curSel.pending = false;
@@ -4060,9 +4664,15 @@ async function liveTranslate(text, sentence, page){
 
          `refused` 由服务端判定并回传，两边用同一个判据。 */
 
+      /* ★ 落库必须**带上语境句**（2026-09-27 修）：以前 push 的条目只有 词/义/类，
+         本地词表**连判语境的材料都没有** —— 下次在别的段落划到同一个词，
+         它照样按这条（不知道出处的）释义回答。 */
+
       if (!r.cached && !r.refused && NOTE) NOTE.glossary.push({ term: text, zh: r.termZh, kind: r.kind || '单词',
 
-                                                  warn: r.warn || '', note: r.note || '' });
+                                                  warn: r.warn || '', note: r.note || '',
+
+                                                  exampleEn: sentence, exampleZh: r.sentenceZh || '' });
 
       if (!r.cached && !r.refused && NOTE && sentence){
 
@@ -4086,7 +4696,210 @@ async function liveTranslate(text, sentence, page){
 
 
 
-/* 取选区所在的整句：从该页的文本层拼出全文再按标点回溯 */
+/* 选区**在本页文本层里**前面大约有多少个字符？（1-D 修复的地基）
+
+   为什么要它：`getContext` 以前用 `full.indexOf(text)` 取**本页第一次出现**的位置 ——
+   同一个词在一页里出现多次时，取到的是**别处**那一句，于是"当前句"从根上就是错的，
+   后面的 (词,句) 复合键自然也跟着错。这是主人 09-22 报的"语境割裂"四条根因里的 1-D。
+
+   算法：renderTextLayer 生成的**文字 span 没有 class**（标注框 mk-*、链接 pdf-link 都有），
+   按文档顺序数排在它前面的纯文字 span，累加长度，再加 span 内偏移。
+
+   ⚠ 这是**近似值**（pdf.js 会做空白规范化，与 `items.join(' ')` 有出入），
+   所以调用方只当"提示"用：在提示位置附近找，找不到再退回全局查找。 */
+
+function spanOffsetHint(pageEl, range, nonEmptyStarts){
+
+  try{
+
+    const tl = pageEl && pageEl.querySelector('.textLayer');
+
+    const node = range && range.startContainer;
+
+    if (!tl || !node) return -1;
+
+    const sp = node.nodeType === 1 ? node : node.parentElement;
+
+    if (!sp || sp.tagName !== 'SPAN' || sp.className) return -1;
+
+    const spans = [...tl.children].filter(c => c.tagName === 'SPAN' && !c.className);
+
+    const idx = spans.indexOf(sp);
+
+    if (idx < 0) return -1;
+
+    /* ⚠ 节点内偏移必须取 **Range 的 startOffset** —— 文本节点身上压根没这个属性。
+
+       09-27 的初版参数收的是"文本节点"、这里写 `node.startOffset` → 恒为 undefined →
+       `n + undefined = NaN` → 调用方 `locateIn` 里 `hint > 0` 永假 → **hint 分支从没生效过**，
+       这一步永远退化成"本页第一次出现"的那一处（1-D 修复形同虚设）。
+
+       2026-10-04 主人报"整句的获取完全是乱七八糟的"时抓出来：选的词只要在标题/页眉里
+       先出现过（CTL、CCL5、CXCR4 全在标题上），取到的就不是你选的那一句。 */
+
+    const off = node.nodeType === 3 ? range.startOffset : 0;
+
+    /* ★ 精确路径（2026-10-04）：文字层的 span 恰好就是"跳过空 item 后的那串 item"，
+       与 pageTextIndex 的 nonEmptyStarts 一一对应 —— 提示位置不再有估算误差
+       （老算法按 textContent.length+1 累加，遇到空 item/多空格会漂几十个字符）。 */
+
+    if (nonEmptyStarts && idx < nonEmptyStarts.length) return nonEmptyStarts[idx] + off;
+
+    let n = 0;
+
+    for (let k = 0; k < idx; k++) n += spans[k].textContent.length + 1;   // +1 ≈ join(' ') 的那个空格
+
+    return n + off;
+
+  }catch(e){ return -1; }
+
+}
+
+
+/* 在 hay 里找 needle：**优先在 hint 附近找**（同页重复词时靠它命中"你划的那一处"）。
+
+   只有"贴着提示位置"的结果才认 —— 差得远说明那是别处的同一个词，
+   宁可退回全局查找，也不拿一个位置对不上的结果去凑。 */
+
+function locateIn(hay, needle, hint){
+
+  if (hint > 0){
+
+    const j = hay.indexOf(needle, Math.max(0, hint - 80));
+
+    if (j >= 0 && j - hint < 300) return j;
+
+  }
+
+  return hay.indexOf(needle);
+
+}
+
+
+/* 把一页的 items 拼成整页文字，**同时**记下两份索引：
+
+   · nonEmptyStarts —— 每个"有文字的 item"的首字符在拼好文字里的下标
+     （DOM 文字层的 span 恰好就是这串，一一对应 → 提示位置可以算**精确**值）；
+   · cuts           —— 「段界」位置集合：换行处**字号明显跳变**或**行距明显变大**的行首。
+
+   为什么要段界（2026-10-04 修，主人报"整句的获取完全是乱七八糟的"）：
+   标题、作者名单、页眉这些地方**没有句号**，而句子边界是"往左/往右找到标点"——
+   在摘要里划一个词，往回走会一路穿过作者、穿过标题、直到页眉，
+   整句变成 "The Journal of Immunology Synaptic Release of CCL5 … Katarzyna Franciszkiewicz,* ,†,‡,1 …"
+   这么一坨（525 个字符，实测）。回溯/前扫遇到段界就停，句子不跨段。
+
+   行距基准取**本页行距的中位数**（不是字高）：双倍行距的版式里逐行都是"大行距"，
+   拿字高当基准会把每一行都误判成段界，句子碎成一地。 */
+
+function pageTextIndex(items){
+
+  let full = '';
+
+  const nonEmptyStarts = [], lines = [];
+
+  let line = null;
+
+  /* 正文正字号的估计值（给"首字下沉"判定用）：所有 item 字高的中位数。 */
+
+  const hs = items.map(it => it.height || 0).filter(h => h > 0).sort((a, b) => a - b);
+
+  const medH = hs.length ? hs[Math.floor(hs.length / 2)] : 0;
+
+  let pendingCap = null;                  // 见下面"首字下沉"那段
+
+  for (const it of items){
+
+    const s = String(it.str == null ? '' : it.str);
+
+    let firstChar = -1;
+
+    for (let k = 0; k < s.length; k++){
+
+      const ch = s[k];
+
+      if (/\s/.test(ch)){ if (full && !/\s$/.test(full)) full += ' '; }
+
+      else { if (firstChar < 0) firstChar = full.length; full += ch; }
+
+    }
+
+    if (s === '') continue;
+
+    nonEmptyStarts.push(firstChar >= 0 ? firstChar : full.length);
+
+    if (firstChar >= 0 && it.transform && it.height > 0){
+
+      const y = it.transform[5], h = it.height;
+
+      if (!line || Math.abs(y - line.y) > Math.max(2.5, 0.75 * Math.min(h, line.h))){
+
+        /* 首字下沉（drop cap，J Immunol 这类版式的段首大字母）：孤零零 1~2 个字符、
+           字号远大于正文 —— 它**不是一行**，附到下一行行首。
+
+           ⚠ 不这么办的话：41.8pt 的 "C" 和 9pt 的 "D8" 会被判成两行、在中间切出假段界，
+           "CD8 + T lymphocytes…" 的整句会从 "D8" 开始（实测 10-04 抓到的）。 */
+
+        if (medH > 0 && h > 1.8 * medH && s.trim().length <= 2){ pendingCap = firstChar; }
+
+        else {
+
+          const prev = line;
+
+          const st = pendingCap != null ? pendingCap : firstChar;
+
+          pendingCap = null;
+
+          line = { start: st, y: y, h: h, adv: prev ? prev.y - y : 0 };
+
+          lines.push(line);
+
+        }
+
+      } else if (h > line.h) line.h = h;
+
+    }
+
+    if (full && !/\s$/.test(full)) full += ' ';   // item 之间的分隔（= 旧 join(' ') 的那个空格）
+
+  }
+
+  full = full.replace(/\s+$/, '');
+
+  /* 段界：与**上一行**比 —— 字号跳变（标题↔正文）或行距明显大于本页中位数（段间距）。
+
+     ⚠ 往上的列跳（两栏版式换栏，y 回头变大）不算段界：栏底接栏顶是**同一句**的续行，
+     在那里切断反而把句子腰斩。 */
+
+  const advs = lines.map(l => l.adv).filter(a => a > 0).sort((a, b) => a - b);
+
+  const med = advs.length ? advs[Math.floor(advs.length / 2)] : 0;
+
+  const cuts = new Set();
+
+  for (let li = 1; li < lines.length; li++){
+
+    const a = lines[li - 1], b = lines[li];
+
+    const fontJump = a.h > 0 && b.h > 0 && (b.h / a.h > 1.2 || a.h / b.h > 1.2);
+
+    /* 行距阈值取二者较大：本页中位行距×1.6 / 本行字高×1.55。
+
+       ⚠ 只用中位数会**误伤大字号的行**（实测 10-04）：论文标题 17.9pt、行距 21，
+       而正文中位行距才 10.9 —— 21 > 1.6×10.9，标题被一行一行切断。
+       带上"本行字高×1.55"这一项，大字的正常行距就不再算"大间距"。 */
+
+    const bigGap = med > 0 && b.adv > Math.max(1.6 * med, 1.55 * b.h);
+
+    if (fontJump || bigGap) cuts.add(b.start);
+
+  }
+
+  return { full: full, nonEmptyStarts: nonEmptyStarts, cuts: cuts };
+
+}
+
+
+/* 取选区所在的整句：从该页的文本层拼出全文再按标点回溯（并收在段界之内） */
 
 async function getContext(text, range){
 
@@ -4106,9 +4919,15 @@ async function getContext(text, range){
 
     const tc = await p.getTextContent();
 
-    let full = tc.items.map(i => i.str).join(' ').replace(/\s+/g, ' ');
+    const pidx = pageTextIndex(tc.items);            // ★ 整页文字 + item 起点 + 段界（见上）
 
-    let i = full.indexOf(text);
+    let full = pidx.full;
+
+    let cuts = pidx.cuts;
+
+    const hint = spanOffsetHint(pageEl, range, pidx.nonEmptyStarts);   // ★ 你划的到底是哪一处（1-D 修复）
+
+    let i = locateIn(full, text, hint);
 
     let len = text.length;
 
@@ -4116,7 +4935,7 @@ async function getContext(text, range){
 
       const probe = text.length >= 24 ? text.slice(0, 24) : text;
 
-      i = full.indexOf(probe);
+      i = locateIn(full, probe, hint);
 
       len = probe.length;
 
@@ -4138,19 +4957,24 @@ async function getContext(text, range){
 
       const probe = text.length >= 24 ? text.slice(0, 24) : text;
 
-      const j = f2.indexOf(probe);
+      const j = locateIn(f2, probe, hint);
 
       if (j < 0) return { sentence: text, page };
 
       full = f2; i = j; len = probe.length;
 
+      cuts = null;      // 断词还原把坐标全改了，段界对不上 —— 这条老路保持原样
+
     }
 
     let s = i, e = i + len;
 
-    while (s > 0 && !/[.!?;:]/.test(full[s - 1])) s--;
+    /* ★ 段界处收住（2026-10-04）：标题/作者/页眉没有句号，纯按标点回溯会把它们整块吞进来。
+       左扫停在段首、右扫停在下一段的段首（cuts 见 pageTextIndex）。 */
 
-    while (e < full.length && !/[.!?;:]/.test(full[e])) e++;
+    while (s > 0 && !/[.!?;:]/.test(full[s - 1]) && (!cuts || !cuts.has(s))) s--;
+
+    while (e < full.length && !/[.!?;:]/.test(full[e]) && (!cuts || !cuts.has(e + 1))) e++;
 
     return { sentence: full.slice(s, e + 1).trim(), page };
 
@@ -4160,35 +4984,41 @@ async function getContext(text, range){
 
 
 
-/* 词条匹配：取前 5 个字母做词根（charge↔charged、recruit↔recruitment） */
+/* 词条匹配：**必须同词同句**（主人 2026-09-22 定的设计律）。
 
-function lookupTerms(text){
+   ⚠ 这里以前是"取前 5 个字母做词根"匹配 —— 那是 1-A 号病根：
+   词表里全是短语，`enable the development of` 与 `enable rational programming of` 同根 `enabl`，
+   划其中一个会命中一串（主人原话："忽略我后面选择的词"）。
+
+   现在**两把钥匙缺一不可**：词要整串对上（不再是词根），句子也要对上（语境不许错位）。 */
+
+function lookupTerms(text, sentence){
 
   const words = text.trim().split(/\s+/);
 
   if (words.length > 3) return [];            // 长句不查词表
 
-  const root = s => String(s).toLowerCase().replace(/[^a-z]/g, '').slice(0, 5);
+  const t = normEn(text);
 
-  const r = root(text);
+  const ns = normEn(sentence);
 
-  if (r.length < 3) return [];
+  if (!t || !ns) return [];                   // 不知道语境 → 不查（宁可不命中，绝不跨句复用）
 
   return NOTE.glossary.filter(g =>
 
-    String(g.term).toLowerCase().split(/\s*\/\s*/).some(part => {
+    String(g.term).toLowerCase().split(/\s*\/\s*/).some(part => normEn(part) === t) &&
 
-      const pr = root(part.replace(/\(.*?\)/g, ''));
-
-      return pr && (pr === r || (pr.length >= 4 && r.startsWith(pr)) ||
-
-                    (r.length >= 4 && pr.startsWith(r)));
-
-    }));
+    normEn(g.exampleEn) === ns);              // 老条目无 exampleEn → normEn('')='' ≠ ns → 自动不命中
 
 }
 
 
+
+/* 找"这句话翻过没"。**只认归一化后整句相等** ——
+
+   ⚠ 以前是**双向子串包含**（1-C 号病根）：选一个短词/短语，任何**包含它**的缓存句都能来顶包
+   （主人原话："按照前面的缓存回答（包含其中某个单词的缓存）"）。
+   实测 paper-7 有 8 对整句互相包含、paper-6 有 6 对 —— 误命中的土壤是现成的。 */
 
 function findSentence(text){
 
@@ -4196,19 +5026,7 @@ function findSentence(text){
 
   if (n.length < 12) return null;
 
-  let best = null, bestLen = 0;
-
-  NOTE.sentences.forEach(s => {
-
-    const sn = normEn(s.en);
-
-    if (sn.includes(n) && n.length > bestLen){ best = s; bestLen = n.length; }
-
-    else if (n.includes(sn) && sn.length > bestLen){ best = s; bestLen = sn.length; }
-
-  });
-
-  return best;
+  return NOTE.sentences.find(s => normEn(s.en) === n) || null;
 
 }
 
@@ -4274,7 +5092,14 @@ function renderTransCard(){
 
   }
 
-  const isWord = text.trim().split(/\s+/).length <= 2;
+  /* ★ 2026-09-27（主人拍板）：**不再限制词数** ——
+     以前只给 ≤2 词的选区显示「标注生词」，短语/整句都标不了（主人 09-22 报的第二个问题）。
+
+     主人原话："放宽爱多宽就多宽啊，你限制它干什么？反正翻译是自动翻译的，就算横跨两个句子
+     也是大模型翻译，然后标注的话也是把句意标注上去而已。"
+
+     颜色不受影响：标注生词走的是 kind==='term' 的**固定黄色**（见 addMark），
+     人工标注与 AI 预标注靠**下划线那套形状语言**区分身份，本来就不按词数分色。 */
 
   h += '<div class="tacts">';
 
@@ -4282,7 +5107,7 @@ function renderTransCard(){
 
   h += '<button class="tadd ghost" id="btnHl">高亮原文</button>';
 
-  if (isWord) h += '<button class="tadd ghost" id="btnTerm">标注生词</button>';
+  h += '<button class="tadd ghost" id="btnTerm">标注生词</button>';
 
   h += '</div>';
 
@@ -4340,9 +5165,13 @@ function addMark(kind){
 
     const g = curSel.terms && curSel.terms[0];
 
-    zh = g ? g.zh : '';
+    // ★ 长选区（>3 词不查词表）没有词义 → 用**整句译文**兜底（主人 09-27：
+    //   "标注的话也是把句意标注上去而已"）。没有这一句的话，标一个短语或整句，
+    //   悬停上去只有原文、没有中文 —— 标了等于白标。
 
-    if (!zh) toast('这个词还没在词表里——已高亮，但悬停时只有原文、没有中文');
+    zh = g ? g.zh : (curSel.sentZh || '');
+
+    if (!zh) toast('这一处还没有译文——已高亮，但悬停时只有原文、没有中文');
 
   }
 
@@ -5377,9 +6206,13 @@ async function initPdf(){
 
     await buildPlaceholders();
 
-    // 回到上次读到的那一页（真阅读器的标配；我们本来就记住了"读哪篇"，这次把"读到第几页"也记住）
+    /* ⚠ **换中英源时必须跳过这一段**（ZH_SWAPPING）——
+       否则它会在 400ms 后 `pdfPageJump(上次那页)`，把刚还原好的精确位置一把推到
+       那一页的**顶部**（主人 2026-09-27 报的："一开始完全原位切换，过一秒又弹到
+       第三页最上面"）。这个"回到上次读到的页"本身是好功能，但它只该对**打开论文**
+       生效；换中英只是同一篇换了份渲染，位置由 zhSwapPdf 自己接管。 */
 
-    if (PAPER_ID){
+    if (PAPER_ID && !ZH_SWAPPING){
 
       let last = 0;
 
@@ -6728,6 +7561,8 @@ function bindLayout(){
   const toggleFocus = () => {
 
     focusMode = !focusMode;
+
+    chartCol.classList.toggle('focus', focusMode);   // 专心时隐藏被裁掉的 ⟩（见 CSS）
 
     if (focusMode){
 
@@ -10527,6 +11362,11 @@ async function runAnalyze(){
 
   if (!PAPER_ID){ toast('先拖一篇 PDF 进来，或从地址栏带 ?paper=<id> 打开'); return; }
 
+  // ★ 桌宠跟着一起忙（主人 09-27：进度条要说清"在干什么"）。
+  //   页面里本来就有自己的进度浮层，但桌宠那条是**全局可见**的 ——
+  //   用户视线在 PDF 上、浮层被挡着的时候也能瞄到一眼。
+  petBusy(true, '一键分析论文');
+
   const box = document.getElementById('ingest');
 
   box.classList.add('on');
@@ -10563,7 +11403,25 @@ async function runAnalyze(){
 
     renderJob(j);
 
+    /* 桌宠进度条：按**步骤完成比例**估算。
+
+       ⚠ 步骤是"跑到哪加到哪"的，所以这个百分比会**先快后慢地修正**，不是线性推进 ——
+         但它至少一直在动，比一个僵着的忙碌动画强得多。
+         （真要精确到"第几节/共几节"，得后端按节上报进度，那是另一笔账。） */
+
+    if (j.state === 'running'){
+
+      const ss = j.steps || [];
+
+      const dn = ss.filter(s => s.state === 'done').length;
+
+      petSetProgress(ss.length ? Math.round(dn / ss.length * 100) : 0);
+
+    }
+
     if (j.state === 'done'){
+
+      petBusy(false);
 
       document.getElementById('ingBar').style.display = 'none';
 
@@ -10606,6 +11464,8 @@ async function runAnalyze(){
   fail('等太久了（2 小时），去看看服务端日志');
 
   function fail(msg){
+
+    petBusy(false);                      // ★ 桌宠退出忙碌态（所有失败出口都走这里）
 
     document.getElementById('ingBar').style.display = 'none';
 
@@ -10652,6 +11512,2110 @@ function renderJob(j){
 }
 
 
+
+/* ==================================================================== 桌宠（爱音）
+
+   主人 2026-09-27：把爱音做成 AnonSight 的**浮动交互键** —— GIF 表情就是状态的可视化。
+
+   需求真源：`12-需求-AnonSight桌宠-20260927.md`。状态机（主人拍板）：
+
+       [常驻 idle] ⇄单击⇄ [中文 zh]                 单击切 PDF 中英文，GIF 跟着换
+
+       [常驻 idle] ──双击──> [识图 figure + 右侧弹窗]
+
+       [识图 figure] ──双击 / 点弹窗的 ✕──> [常驻 idle]
+
+       [任意态] ──有活干──> [忙碌 busy] ──干完──> 回到**发起前**的那个态
+
+   三条铁律（都是主人原话，别自己发挥）：
+
+     ① 识图态下**单击无效** —— 只认双击关
+
+     ② 忙碌结束回**发起前**的态，不是一律回常驻（常驻发起的才回常驻）
+
+     ③ 弹窗的关闭按钮与桌宠**双向同步**（关了弹窗，桌宠必回 idle）
+
+   单击/双击怎么分：这是躲不掉的物理限制 —— 浏览器判不出，只能等 250ms 看有没有第二击。
+
+   所以单击切中英文会有 250ms 延迟（主人已接受）。拖动（位移 > 5px）不算点击，
+
+   否则每拖一次都会误触发一次切换。 */
+
+const PET_POS_KEY = 'paperide.pet.pos';
+
+const PET_CLICK_DELAY = 250;
+
+const PET = {
+
+  el: null, img: null, menuEl: null, panelEl: null,
+
+  layers: [],                       // 双图层 [A, B]；img 始终指向**当前显示**的那层
+  fx: null,                         // 切换特效的挂载点
+  swapTimer: null,                  // 交叉过渡结束后的收尾计时器
+
+  state: 'idle',                    // idle | zh | figure | explain | busy
+
+  returnTo: 'idle',                 // 忙碌前是哪个态（忙完回这儿）
+
+  busy: false,
+
+  /* ★ 持久模式开关（2026-10-04 解读模式）：null | 'interpret'。
+     和 `state` 分工：state = **此刻显示哪个 GIF**（临时态，会被双击/忙碌切走）；
+     mode = **用户开着哪个模式**（不被临时态冲掉）——识图关掉、切回英文时，
+     要回到"当前模式的底态"（见 petBaseState），而不是一律回常驻。
+     主人定的优先级：忙碌 > 识图 > 中文 > 解读模式 > 常驻。 */
+  mode: null,
+
+  clickTimer: null, drag: null, items: [],
+
+  busyWhat: '',                     // 忙碌时"在干什么"（进度条上那行字）
+
+  GIF: { idle: 'pet/idle.gif', zh: 'pet/zh.gif', figure: 'pet/figure.gif',
+         busy: 'pet/busy.gif', explain: 'pet/explain.gif' },
+
+};
+
+/* 「当前模式的底态」：解读模式开着就是 explain，否则 idle。
+
+   用途一：识图关掉（双击/✕）之后回哪儿 —— 解读模式里双击看一眼图再关回来，
+   桌宠不该掉回常驻态（主人 2026-10-04 明确要求："识图对两种模式一视同仁"）。
+
+   用途二：单击切回英文之后回哪儿 —— 否则解读模式下切一次语言，状态就丢了。
+
+   ⚠ 别把 zh 也塞进来：中文态的"显示 zh"由调用点自己判（petToggleLang 的 want 分支），
+   这里只管"没有临时态时，模式的底是什么"。 */
+function petBaseState(){
+
+  return (PET.mode === 'interpret' && PET.GIF.explain) ? 'explain' : 'idle';
+
+}
+
+/* 中英文切换的**实际执行者** —— 翻译集成（功能 1/3）做好后调 petSetLangHandler() 换掉它。
+
+   约定：返回 true = 切成功（桌宠跟着换状态）；false = 没切成（**状态原地不动**）。
+
+   返回 false 时由它自己负责给用户提示，桌宠不替它说话。 */
+
+let PET_APPLY_LANG = function (lang) {
+
+  petToast(lang === 'zh' ? '还没有中文版：先点「生成翻译版 PDF」' : '这一篇本来就是英文版');
+
+  return false;
+
+};
+
+function petSetLangHandler(fn){ PET_APPLY_LANG = fn; }
+
+/* ---------- 对外接口（别的模块只认这几个，别直接改 PET 内部字段）----------
+
+     petAddMenuItem({id,label,fn})   ★ 扩展位：以后加功能只 push 一条，渲染代码不用动
+
+     petBusy(true/false)             任务期间切忙碌态，结束自动回发起前的态
+
+     petSetState('idle'|'zh'|...)    直接设状态（少用，优先用上面两个） */
+
+function petAddMenuItem(item){
+
+  PET.items.push(item);
+
+  if (PET.menuEl && !PET.menuEl.hidden) petRenderMenu();
+
+}
+
+/* 系统级"减少动态效果"偏好（无障碍/晕动症）。开了就一律硬切、不播特效。 */
+const petRMQuery = (window.matchMedia ? window.matchMedia('(prefers-reduced-motion: reduce)') : null);
+
+function petReducedMotion(){ return !!(petRMQuery && petRMQuery.matches); }
+
+/* 状态切换：双层交叉缩放 + 语义化特效（2026-10-31，主人要的）
+
+   旧层放大淡出 / 新层缩小弹入，两条动线反向 → 读起来像翻页，不像重影。
+   时长分三档：进忙碌 120ms（立刻开工的干脆感）、出忙碌 220ms（舒缓）、其余 190ms。
+
+   ⚠ GIF 大（~1.5MB），第一次切到某状态会解码卡顿 —— 由 petPreloadGifs() 预加载兜住。 */
+function petSetState(s){
+
+  const next = PET.GIF[s] ? s : 'idle';
+
+  /* 兜底：老页面/节点缺失时退回原来的硬切，不让桌宠整个坏掉 */
+  if (!PET.layers || PET.layers.length < 2){
+
+    const prev0 = PET.state;
+
+    PET.state = next;
+
+    if (PET.img && PET.GIF[next]) PET.img.src = PET.GIF[next];
+
+    if (PET.el) PET.el.classList.toggle('busy', next === 'busy');
+
+    if (prev0 !== next) petFx(next);
+
+    return;
+
+  }
+
+  const prev = PET.state;
+
+  const cur = PET.img || PET.layers[0];
+
+  const other = (PET.layers[0] === cur) ? PET.layers[1] : PET.layers[0];
+
+  /* 同一状态重复设置：只补一下 busy 样式，绝不重开过渡（否则会闪一下） */
+  if (prev === next && cur.getAttribute('src')){
+
+    if (PET.el) PET.el.classList.toggle('busy', next === 'busy');
+
+    return;
+
+  }
+
+  PET.state = next;
+
+  /* 时长档位（注意要在改 state 之前判 prev） */
+  if (PET.el){
+
+    PET.el.classList.remove('fast', 'slow');
+
+    if (next === 'busy') PET.el.classList.add('fast');
+    else if (prev === 'busy') PET.el.classList.add('slow');
+
+    PET.el.classList.toggle('busy', next === 'busy');
+
+  }
+
+  other.src = PET.GIF[next];
+
+  other.alt = next === 'idle' ? '爱音' : '';
+
+  /* 打断上一次没播完的过渡：把两边都归零，再重新挂动画 */
+  cur.classList.remove('is-in', 'is-settled');
+
+  other.classList.remove('is-out', 'is-settled');
+
+  clearTimeout(PET.swapTimer);
+
+  if (petReducedMotion()){                                   // 关动画 → 硬切
+
+    cur.classList.remove('is-on', 'is-out');
+
+    other.classList.add('is-on');
+
+    PET.img = other;
+
+    return;
+
+  }
+
+  other.classList.add('is-on', 'is-in');
+
+  cur.classList.add('is-out');
+
+  const dur = parseInt(getComputedStyle(PET.el).getPropertyValue('--pet-in'), 10) || 190;
+
+  PET.swapTimer = setTimeout(() => {
+
+    cur.classList.remove('is-on', 'is-out');
+
+    other.classList.remove('is-in');
+
+    other.classList.add('is-settled');
+
+  }, dur + 24);
+
+  PET.img = other;
+
+  petFx(next);
+
+}
+
+/* 每种状态的切换特效。全 CSS 驱动，这里只负责挂节点。
+
+   ⚠ 别把特效做成通用粒子 —— 每个都对应那个状态"在干什么"，
+   这样切换才是有信息量的提示，不是装饰。 */
+function petFx(kind){
+
+  const host = PET.fx;
+
+  if (!host || petReducedMotion()) return;
+
+  host.innerHTML = '';
+
+  const add = (cls, style) => {
+
+    const el = document.createElement('i');
+
+    el.className = cls;
+
+    if (style) el.setAttribute('style', style);
+
+    host.appendChild(el);
+
+  };
+
+  if (kind === 'zh'){                                        // 青色小方块上飘
+
+    for (let i = 0; i < 3; i++){
+
+      add('fx-zh', 'left:' + (44 + i * 8) + '%;top:' + (52 + i * 2) + '%;' +
+                   '--dx:' + ((i - 1) * 8) + 'px;animation-delay:' + (i * 55) + 'ms');
+
+    }
+
+  } else if (kind === 'figure'){                             // 紫色圆环扩散
+
+    add('fx-figure');
+
+  } else if (kind === 'explain'){                            // 暖黄气泡弹出
+
+    add('fx-explain');
+
+  } else if (kind === 'busy'){                               // 速度线掠过
+
+    for (let i = 0; i < 3; i++){
+
+      add('fx-busy', 'top:' + (30 + i * 15) + '%;animation-delay:' + (i * 40) + 'ms');
+
+    }
+
+  }
+  /* 回 idle 不挂粒子：这个切换最频繁，越安静越好 */
+
+  setTimeout(() => { if (PET.fx) PET.fx.innerHTML = ''; }, 760);
+
+}
+
+/* 预加载 5 个 GIF：GIF 单张 1.5MB，第一次切换会解码卡顿，
+   预加载后切换就是纯动画，不会顿一下。 */
+function petPreloadGifs(){
+
+  const urls = Object.keys(PET.GIF || {}).map(k => PET.GIF[k]);
+
+  let i = 0;
+
+  const step = () => {
+
+    if (i >= urls.length) return;
+
+    const im = new Image();
+
+    im.onload = im.onerror = () => setTimeout(step, 40);     // 串行，别和首屏抢带宽
+
+    im.src = urls[i++];
+
+  };
+
+  step();
+
+}
+
+function petBusy(on, what){
+
+  if (on){
+
+    if (!PET.busy) PET.returnTo = PET.state;      // ★ 铁律②：先记住发起前的态
+
+    PET.busy = true;
+
+    PET.busyWhat = what || PET.busyWhat || '处理中';
+
+    petSetState('busy');
+
+    petSetProgress(0, PET.busyWhat);              // 亮出进度条（0% 起）
+
+  } else if (PET.busy){
+
+    PET.busy = false;
+
+    petSetState(PET.returnTo || 'idle');
+
+    petHideProgress();
+
+  }
+
+}
+
+/* 进度条：贴在桌宠**正上方**（主人 09-27 要求 —— 跟桌宠重叠会挡着看不清）。
+   位置每次更新都跟着桌宠重算，它被拖着走时条子也跟得上。
+   内容三件：**在干什么 + 百分比 + 一条进度**。 */
+function petSyncBar(){
+
+  const b = document.getElementById('petBar');
+
+  if (!b || b.hidden || !PET.el) return;
+
+  const r = PET.el.getBoundingClientRect();
+
+  const bw = b.offsetWidth || 150, bh = b.offsetHeight || 42;
+
+  let x = r.left + r.width / 2 - bw / 2;          // 水平：对着桌宠居中
+
+  let y = r.top - bh - 8;                         // 先试**正上方**
+
+  if (y < 6) y = r.bottom + 8;                    // 上方放不下（桌宠贴顶了）→ 挪到正下方
+
+  x = Math.max(6, Math.min(window.innerWidth - bw - 6, x));
+
+  y = Math.max(6, Math.min(window.innerHeight - bh - 6, y));
+
+  b.style.left = Math.round(x) + 'px';
+
+  b.style.top = Math.round(y) + 'px';
+
+}
+
+/* pct = 0~100；what = 在干什么（"翻译论文" / "一键分析"…）。
+   what 只在**切换任务**时传一次即可，之后每帧只传 pct。 */
+function petSetProgress(pct, what){
+
+  const b = document.getElementById('petBar');
+
+  if (!b) return;
+
+  if (what) PET.busyWhat = what;
+
+  b.hidden = false;
+
+  const p = Math.max(0, Math.min(100, Number(pct) || 0));
+
+  const w = document.getElementById('petBarWhat');
+
+  const n = document.getElementById('petBarPct');
+
+  const f = document.getElementById('petBarFill');
+
+  if (w) w.textContent = PET.busyWhat || '处理中';
+
+  if (n) n.textContent = Math.round(p) + '%';
+
+  if (f) f.style.width = p + '%';
+
+  petSyncBar();
+
+}
+
+function petHideProgress(){
+
+  const b = document.getElementById('petBar');
+
+  if (b) b.hidden = true;
+
+}
+
+function petToast(msg){ try { toast(msg); } catch (e) { console.log('[桌宠]', msg); } }
+
+/* ---------- 位置 ---------- */
+
+function petPlace(x, y){
+
+  const w = PET.el.offsetWidth || 140, h = PET.el.offsetHeight || 140;
+
+  x = Math.max(4, Math.min(window.innerWidth - w - 4, x));
+
+  y = Math.max(4, Math.min(window.innerHeight - h - 4, y));
+
+  PET.el.style.left = x + 'px';  PET.el.style.top = y + 'px';
+
+  PET.el.style.right = 'auto';   PET.el.style.bottom = 'auto';
+
+  const b = document.getElementById('petBar');
+
+  if (b && !b.hidden) petSyncBar();               // 拖着走时进度条跟上
+
+}
+
+function petRestorePos(){
+
+  let p = null;
+
+  try { p = JSON.parse(localStorage.getItem(PET_POS_KEY) || 'null'); } catch (e){}
+
+  if (p && typeof p.x === 'number' && typeof p.y === 'number') petPlace(p.x, p.y);
+
+}
+
+function petSavePos(){
+
+  // ⚠ 读 style.left/top，**不要**用 getBoundingClientRect() ——
+  //   松手那一瞬还挂着拖拽的 squash 变形，rect 是被 transform 撑过/压过的，
+  //   存下来的位置会跟眼睛看到的差一截。
+
+  const x = parseFloat(PET.el.style.left), y = parseFloat(PET.el.style.top);
+
+  if (isNaN(x) || isNaN(y)) return;
+
+  try { localStorage.setItem(PET_POS_KEY, JSON.stringify({ x: Math.round(x), y: Math.round(y) })); } catch (e){}
+
+}
+
+function petClampPos(){
+
+  if (!PET.el || !PET.el.style.left) return;      // 没挪过（还是 CSS 右下角）→ 不用管
+
+  petPlace(parseFloat(PET.el.style.left) || 0, parseFloat(PET.el.style.top) || 0);
+
+}
+
+/* ---------- 事件 ---------- */
+
+function petBind(){
+
+  const el = PET.el;
+
+  el.addEventListener('mousedown', petDown);
+
+  el.addEventListener('contextmenu', ev => { ev.preventDefault(); petToggleMenu(ev.clientX, ev.clientY); });
+
+  window.addEventListener('mousemove', petMove);
+
+  window.addEventListener('mouseup', petUp);
+
+  document.addEventListener('mousedown', ev => {   // 点页面别处收起菜单
+
+    if (PET.menuEl && !PET.menuEl.hidden && !PET.menuEl.contains(ev.target) && !el.contains(ev.target)) petHideMenu();
+
+  });
+
+  document.addEventListener('keydown', ev => { if (ev.key === 'Escape') petHideMenu(); });
+
+}
+
+function petDown(ev){
+
+  if (ev.button !== 0) return;                    // 只认左键（右键走 contextmenu）
+
+  petHideMenu();
+
+  const r = PET.el.getBoundingClientRect();
+
+  PET.drag = { sx: ev.clientX, sy: ev.clientY, ox: r.left, oy: r.top, moved: false,
+
+               lx: ev.clientX, ly: ev.clientY };
+
+  PET.el.classList.add('dragging', 'press');      // press：按下就缩一下（手指压下去的手感）
+
+  ev.preventDefault();                            // 别让浏览器起原生拖拽/选字
+
+}
+
+function petMove(ev){
+
+  const d = PET.drag;
+
+  if (!d) return;
+
+  const dx = ev.clientX - d.sx, dy = ev.clientY - d.sy;
+
+  if (!d.moved && Math.abs(dx) + Math.abs(dy) > 5) d.moved = true;
+
+  if (!d.moved) return;
+
+  petPlace(d.ox + dx, d.oy + dy);
+
+  petSquash(ev.clientX - d.lx, ev.clientY - d.ly);   // ★ 拖拽变形：拿"这一步的位移"当速度
+
+  d.lx = ev.clientX; d.ly = ev.clientY;
+
+}
+
+/* 拖拽的微量变形：**沿运动方向**轻微拉伸（squash & stretch）。
+   横向拉多少、纵向就压多少（保面积）—— 这是动画里"有重量"的经典做法。
+   幅度压得很小（最多 8%）：桌宠是陪伴物，不是弹力球。
+   手停下那几帧自动回正（k < 0.02 就清掉变形）。 */
+function petSquash(mx, my){
+
+  const k = Math.min(1, Math.hypot(mx, my) / 34);      // 34px/次 就拉满
+
+  if (k < 0.02){ PET.el.style.transform = ''; return; }
+
+  const ang = Math.atan2(my, mx) * 180 / Math.PI;      // 拉伸方向 = 运动方向
+
+  const s = 1 + 0.08 * k;
+
+  PET.el.style.transform =
+
+    'rotate(' + ang.toFixed(1) + 'deg) scale(' + s.toFixed(3) + ',' + (2 - s).toFixed(3) +
+
+    ') rotate(' + (-ang).toFixed(1) + 'deg)';
+
+}
+
+function petUp(ev){
+
+  const d = PET.drag;
+
+  PET.drag = null;
+
+  if (!d) return;
+
+  PET.el.classList.remove('press');
+
+  if (d.moved){
+
+    petSavePos();
+
+    /* ★ 回弹必须**分两帧**做，不能跟摘 `dragging` 挤在同一帧 ——
+       `dragging` 上挂着 `transition:none`，同一帧里既摘掉它、又去改 transform 的话，
+       浏览器算新样式时用的还是"没有过渡"那条规则，于是变形**啪地跳回**、而不是弹回去
+       （主人 16:14 报的"松手了还不回弹"就是这个）。
+       先摘类，下一帧再改 transform，过渡就接上了。 */
+
+    PET.el.classList.remove('dragging');
+
+    requestAnimationFrame(() => { PET.el.style.transform = ''; });
+
+    return;
+
+  }
+
+  // 没拖 = 点击：交给 pop 动画自己去弹（animation 的优先级高于 inline style，不用先清）
+  PET.el.classList.remove('dragging');
+
+  PET.el.style.transform = '';
+
+  petPop();                                       // ★ 点一下弹一弹（单击/双击都有形变反馈）
+
+  if (PET.clickTimer){                            // 250ms 内又来一击 → 双击
+
+    clearTimeout(PET.clickTimer); PET.clickTimer = null;
+
+    petOnDouble();
+
+  } else {
+
+    PET.clickTimer = setTimeout(() => { PET.clickTimer = null; petOnSingle(); }, PET_CLICK_DELAY);
+
+  }
+
+}
+
+/* 弹一下。移除 → 强制重排 → 加回来，是为了让动画**能重放**：
+   否则连点两下时第二下不动（class 已经在身上，浏览器认为没变化）。 */
+function petPop(){
+
+  PET.el.classList.remove('pop');
+
+  void PET.el.offsetWidth;
+
+  PET.el.classList.add('pop');
+
+  setTimeout(() => PET.el.classList.remove('pop'), 460);
+
+}
+
+function petOnSingle(){
+
+  if (PET.busy) return;
+
+  if (PET.state === 'figure') return;             // ★ 铁律①：识图态下单击无效
+
+  petToggleLang();
+
+}
+
+function petOnDouble(){
+
+  if (PET.busy) return;
+
+  if (PET.state === 'figure') petCloseFigure();   // 双击 = 开关（识图态下就是关）
+
+  else petOpenFigure();
+
+}
+
+/* ---------- 中英文切换（菜单第一项与单击是同一件事的两个入口）---------- */
+
+async function petToggleLang(){
+
+  if (PET.busy) return;
+
+  if (PET.state === 'figure') return;
+
+  const want = (PET.state === 'zh') ? 'en' : 'zh';
+
+  // ⚠ 处理器可能是**异步**的（中文覆盖层要先去拉双语数据），所以这里 await ——
+  //   不能像原来那样直接 `if (!fn(x))`：拿到的会是个 Promise（恒真），
+  //   切不成也照样把桌宠切成中文态，界面就骗人了。
+
+  let ok = false;
+
+  try { ok = await PET_APPLY_LANG(want); } catch (e){ ok = false; }
+
+  if (!ok) return;                                // 切不成 → 状态原地不动（提示由处理器自己给）
+
+  // 切回英文时回**当前模式的底态**（解读模式里是 explain，不是 idle）——见 petBaseState
+  petSetState(want === 'zh' ? 'zh' : petBaseState());
+
+}
+
+/* ---------- 图片分析（识图模式）----------
+
+   双击桌宠 / 右键菜单 → 识别**当前显示页**的论文图片 → 右栏按图给结果。
+   需求真源：`12-需求-AnonSight桌宠-20260927.md` §五。
+   后端 `core/figure_ai.py`：图注锚点+墨迹聚簇认图 → 裁图+图注+引用段+开头送多模态模型
+   → describe/findings/focus/trend + 组统括；**以图片指纹为键缓存**，再看秒回零花费。
+
+   面板做在**右栏里**（`#figCol`，跟图列并列、可拖宽），不是浮在 PDF 上的死弹窗 ——
+   主人 2026-09-27 的要求：浮窗"不太方便看，要阅读的话获取的信息量有点少"。
+
+   ⚠ 状态机契约（与解读模式那边约定）：识图是**临时态、两种模式下都能进**；
+     关面板/busy 结束"回哪去"由 `petBaseState()` 管（解读模式那边实现的），这里不写死。 */
+
+async function petOpenFigure(){
+
+  const col = PET.panelEl;                        // = #figCol
+
+  const body = document.getElementById('figBody');
+
+  if (!col || !body) return;
+
+  petHideMenu();
+
+  document.getElementById('figCloseBtn').onclick = petCloseFigure;   // ★ 铁律③
+
+  col.hidden = false;
+
+  const rz = document.getElementById('rszFig');
+
+  if (rz) rz.hidden = false;
+
+  petSetState('figure');
+
+  if (!API){                                      // 静态样例模式：说明白，别装作在跑
+
+    body.innerHTML = '<div class="fig-hint">识图要跑本地服务：从「打开平台」启动，别直接开这个 html。</div>';
+
+    return;
+
+  }
+
+  const page = pdfCurPage || 1;
+
+  body.innerHTML = '<div class="fig-hint">正在看第 ' + page + ' 页有哪些图…</div>';
+
+  petBusy(true, '识别图片');
+
+  try {
+
+    const r = await runFigureJob(page);
+
+    renderFigureResult(r);
+
+    petBusy(false);
+
+  } catch (e){
+
+    petBusy(false);
+
+    body.innerHTML = '<div class="fig-hint fig-err">识别失败：' + esc0(String(e.message || e).slice(0, 140)) +
+
+                     '<br><br>看一眼服务端那个窗口的日志就知道卡在哪了。</div>';
+
+  }
+
+}
+
+/* 起任务 + 轮询（照「生成翻译版 PDF」那套）。返回读回的页结果。 */
+
+async function runFigureJob(page){
+
+  let r;
+
+  try {
+
+    r = await (await fetch(API + '/figures', {
+
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+
+      body: JSON.stringify({ page: page })
+
+    })).json();
+
+  } catch (e){ throw new Error('启动失败：' + e); }
+
+  if (r.error) throw new Error(r.error);
+
+  if (!r.job) throw new Error('后端没给任务号（看服务端日志）');
+
+  for (let i = 0; i < 600; i++){                  // 最多等 10 分钟（一页 1~3 张 × 每张几秒；缓存命中秒回）
+
+    if (i) await new Promise(s => setTimeout(s, 1000));
+
+    let j;
+
+    try { j = await (await fetch('/api/jobs/' + r.job)).json(); } catch (e){ continue; }
+
+    if (typeof j.progress === 'number') petSetProgress(j.progress, '识别图片');
+
+    if (j.state === 'done'){
+
+      const got = await (await fetch(API + '/figures?page=' + page)).json();
+
+      if (got.error) throw new Error(got.error);
+
+      return got;
+
+    }
+
+    if (j.state === 'failed') throw new Error(j.error || '识别失败（看服务端日志）');
+
+  }
+
+  throw new Error('等太久了（超过 10 分钟）');
+
+}
+
+/* 把页结果画进 figBody：每张图一块；多图且同组时顶部加一段统括。 */
+
+function renderFigureResult(r){
+
+  const body = document.getElementById('figBody');
+
+  if (!body) return;
+
+  if (!r || r.empty){
+
+    body.innerHTML = '<div class="fig-hint">第 ' + ((r && r.page) || '') +
+
+                     ' 页没有可识别的论文图片。</div>';
+
+    return;
+
+  }
+
+  const sec = (k, v) => v ? ('<div class="fig-sec"><span class="fig-k">' + k + '</span>' + esc0(v) + '</div>') : '';
+
+  let h = '<div class="fig-meta">PDF 第 ' + r.page + ' 页 · ' + r.figures.length + ' 张图</div>';
+
+  if (r.group && r.group.related && r.group.summary){
+
+    h += '<div class="fig-group"><b>这组图在讲什么</b><div class="fig-sec">' + esc0(r.group.summary) + '</div></div>';
+
+  }
+
+  r.figures.forEach(f => {
+
+    h += '<div class="fig-card" data-fig-fp="' + esc0(f.fp || '') + '" data-fig-name="' +
+
+         esc0(f.name || '图') + '" data-fig-page="' + (f.page || '') + '"><h4>' + esc0(f.name || '图') +
+
+         (f.error ? '<span class="fig-err"> · 分析失败</span>' : '') + '</h4>';
+
+    if (f.error){
+
+      h += '<div class="fig-sec fig-err">' + esc0(f.error) + '</div>';
+
+    } else {
+
+      h += sec('画了什么', f.describe) + sec('内容与结论', f.findings) +
+
+           sec('重点看哪', f.focus) + sec('趋势', f.trend);
+
+      /* 「追问这张图」（主人 2026-10-04 拍板）：把图挂进解读模式的左栏对话，
+         提问随附原图 + 这份识图分析；✕ 摘掉就回普通文字对话。 */
+
+      if (f.fp){
+
+        h += '<div class="fig-acts"><button class="fig-ask" data-fp="' + esc0(f.fp) +
+
+             '" title="把这张图挂进左栏解读对话，继续追问">追问这张图</button></div>';
+
+      }
+
+    }
+
+    if (f.caption){
+
+      h += '<details class="fig-cap"><summary>图注原文</summary><div class="fig-sec">' +
+
+           esc0(f.caption) + '</div></details>';
+
+    }
+
+    h += '</div>';
+
+  });
+
+  body.innerHTML = h;
+
+  body.querySelectorAll('.fig-ask').forEach(b => {
+
+    b.onclick = () => figAskFromPanel(b.dataset.fp);
+
+  });
+
+}
+
+/* 识图面板 → 解读对话：把这张图挂成"引用图"去左栏提问（主人 2026-10-04 拍板）。
+   原图与识图分析都由后端按指纹取（见 figure_ai.render_for_fp / summary_for_fp）；
+   没开解读模式就顺手开（一步到位）；挂上后连着问都行，✕ 摘掉回普通文字对话。 */
+
+async function figAskFromPanel(fp){
+
+  if (!API || !fp){ petToast('先在安装版/平台里跑起来再追问'); return; }
+
+  const card = document.querySelector('.fig-card[data-fig-fp="' + fp + '"]');
+
+  const name = (card && card.dataset.figName) || 'Figure';
+
+  const page = (card && card.dataset.figPage) ? +card.dataset.figPage : null;
+
+  if (!INTERP.on) await interpEnter();          // 没在解读模式 → 顺手开
+
+  if (!INTERP.on) return;                        // 开不成（没论文/没后端）——上面已提示
+
+  INTERP.fig = { name: name, fp: fp, page: page };
+
+  switchPane('trans');
+
+  interpRenderQuote();
+
+  interpScrollEnd();
+
+  petToast('已引用「' + name + '」—— 提问会随附原图 + 识图分析，✕ 摘掉就回普通对话');
+
+  const inp = interpEl('interpInput');
+
+  if (inp) { try { inp.focus(); } catch (e){} }
+
+}
+
+function petCloseFigure(){
+
+  if (PET.panelEl) PET.panelEl.hidden = true;
+
+  const rz = document.getElementById('rszFig');
+
+  if (rz) rz.hidden = true;
+
+  // ★ 铁律③：桌宠跟着回**当前模式的底态**（解读模式里回 explain，不是死板的 idle）
+  if (PET.state === 'figure') petSetState(petBaseState());
+
+}
+
+/* 图片分析栏的宽度把手。自己写而不是复用左右栏那套 `drag` 工厂 ——
+   那个是 `bindCols()` 里的局部工具，够不着；而且它 up() 时会改写左右栏的偏好值，
+   借来用会把别人的设置一起改掉。宽度存 localStorage，下次打开还是这个宽度。 */
+
+const FIGW_KEY = 'paperide.figW';
+
+function bindFigResizer(){
+
+  const rz = document.getElementById('rszFig');
+
+  const col = document.getElementById('figCol');
+
+  const right = document.getElementById('right');
+
+  if (!rz || !col || !right) return;
+
+  try {
+
+    const w = parseInt(localStorage.getItem(FIGW_KEY) || '0', 10);
+
+    if (w > 150) right.style.setProperty('--fw', w + 'px');
+
+  } catch (e) {}
+
+  rz.addEventListener('mousedown', ev => {
+
+    ev.preventDefault();
+
+    rz.classList.add('dragging');
+
+    const x0 = ev.clientX, w0 = col.offsetWidth;
+
+    const move = e => {
+
+      /* 上限：**给中间那栏留 360px** —— 看图分析时多半还要瞄一眼原文，
+         把 PDF 挤成一条缝就没法读了（实测拖到底只剩 127px，等于把论文弄没了）。 */
+
+      const leftW = (document.getElementById('left') || {}).offsetWidth || 280;
+
+      const chartW = (document.getElementById('chartCol') || {}).offsetWidth || 420;
+
+      const cap = Math.max(220, window.innerWidth - leftW - chartW - 360);
+
+      const w = Math.max(200, Math.min(cap, w0 - (e.clientX - x0)));
+
+      right.style.setProperty('--fw', Math.round(w) + 'px');
+
+    };
+
+    const up = () => {
+
+      rz.classList.remove('dragging');
+
+      document.removeEventListener('mousemove', move);
+
+      document.removeEventListener('mouseup', up);
+
+      syncPdfToColumn();                                 // 右栏变宽 → PDF 那栏跟着收
+
+      try { localStorage.setItem(FIGW_KEY, String(Math.round(col.offsetWidth))); } catch (e) {}
+
+    };
+
+    document.addEventListener('mousemove', move);
+
+    document.addEventListener('mouseup', up);
+
+  });
+
+}
+
+/* ---------- 生成翻译版 PDF（功能 3）· 本期是占位符 ----------
+
+   做好后：调后端跑 BabelDOC（一篇约 6 分钟），期间 petBusy(true) 切忙碌态、
+
+   干完 petBusy(false) 自动回发起前的态（铁律②）。 */
+
+/* ---------- 生成翻译版 PDF（功能 3）----------
+
+   跑后端那条真管线：`POST /api/papers/<id>/translate_doc` → 子进程调 BabelDOC
+   （一篇 14 页综述约 6 分钟；**同一篇重跑命中 BabelDOC 缓存约 1 分钟、零 API 花费**）
+   → 产出 `translation/blocks.json`（双语块表）+ 中文 PDF。
+
+   ⚠ 路径是 `translate_doc` **不是** `translate`（2026-10-04 修）：09-27 这条任务的后端路由
+   插在了划词翻译前面、两条正则一模一样，划词请求全被它吃掉；分开路径谁也别想再遮住谁。
+
+   期间桌宠切**忙碌态**（爱心眼），菜单项跟着灰掉，干完自动回**发起前**那个态（铁律②）。
+
+   ⚠ 后端跑的是**真钱**：一篇全新论文约六分钟 + 几块钱。重跑同一篇走缓存不花钱。 */
+
+async function petGenTranslation(){
+
+  petHideMenu();
+
+  if (!API){ petToast('先打开一篇论文再点这个'); return; }   // API = '/api/papers/<id>'
+
+  let r;
+
+  try {
+
+    r = await (await fetch(API + '/translate_doc', { method: 'POST' })).json();
+
+  } catch (e){ petToast('启动失败：' + e); return; }
+
+  if (r.error){ petToast('启动失败：' + r.error); return; }
+
+  if (!r.job){ petToast('后端没给任务号（去服务端日志看看）'); return; }
+
+  petBusy(true, '翻译论文');
+
+  for (let i = 0; i < 900; i++){                  // 最多等 15 分钟（首次最慢；缓存命中约 1 分钟）
+
+    await new Promise(s => setTimeout(s, 1000));
+
+    let j;
+
+    try { j = await (await fetch('/api/jobs/' + r.job)).json(); } catch (e){ continue; }
+
+    if (typeof j.progress === 'number') petSetProgress(j.progress);   // ★ 进度条
+
+    if (j.state === 'done'){
+
+      petBusy(false);
+
+      const st = (j.steps || []).slice(-1)[0] || {};
+
+      petToast('中文版好了：' + (st.detail || '翻译完成'));
+
+      return;
+
+    }
+
+    if (j.state === 'failed'){
+
+      petBusy(false);
+
+      petToast('翻译失败：' + String(j.error || '看服务端日志').slice(0, 70));
+
+      return;
+
+    }
+
+  }
+
+  petBusy(false);
+
+  petToast('等太久了（超过 15 分钟）—— 去 papers/ 目录看看有没有落盘');
+
+}
+
+/* ---------- 菜单（列表驱动：加功能只往 PET.items 里 push）---------- */
+
+function petRegisterItems(){
+
+  // `enabledWhen`：菜单**当下**能不能点。不做的话，识图态下点「切换中英文」会静默无反应
+  //（函数里 early return），用户只会觉得"菜单坏了"——灰掉比什么都不发生清楚得多。
+  petAddMenuItem({ id: 'toggle-lang', label: '切换中英文版 PDF', fn: petToggleLang,
+                   enabledWhen: () => PET.state !== 'figure' && !PET.busy });
+
+  petAddMenuItem({ id: 'figure', label: '分析当前页面的论文图片', fn: petOpenFigure,
+                   enabledWhen: () => !PET.busy });
+
+  petAddMenuItem({ id: 'gen-trans', label: '生成翻译版 PDF', fn: petGenTranslation,
+                   enabledWhen: () => !PET.busy });
+
+  // ↑ 以后加功能就往这里加一条（带 enabledWhen 更好），不用改下面的渲染/定位代码
+
+}
+
+function petRenderMenu(){
+
+  const m = PET.menuEl;
+
+  if (!m) return;
+
+  PET.items.forEach(it => {                       // 每次弹菜单都重算一遍可用性
+
+    if (typeof it.enabledWhen === 'function') it.disabled = !it.enabledWhen();
+
+  });
+
+  m.innerHTML = PET.items.map((it, i) =>
+
+    it.sep ? '<div class="pet-sep"></div>'
+
+           /* `label` 可以是函数（每次弹菜单现算）——「解读模式 ⇄ 退出解读模式」这类
+              开关项要跟着状态改字。普通字符串照旧。 */
+
+           : '<button data-i="' + i + '"' + (it.disabled ? ' disabled' : '') + '>'
+
+             + esc0(typeof it.label === 'function' ? it.label() : it.label) + '</button>'
+
+  ).join('');
+
+  m.querySelectorAll('button').forEach(b => {
+
+    b.onclick = () => {
+
+      const it = PET.items[+b.dataset.i];
+
+      petHideMenu();
+
+      if (it && it.fn && !it.disabled) it.fn();
+
+    };
+
+  });
+
+}
+
+function petToggleMenu(x, y){
+
+  if (PET.menuEl && !PET.menuEl.hidden){ petHideMenu(); return; }
+
+  petShowMenu(x, y);
+
+}
+
+function petShowMenu(x, y){
+
+  const m = PET.menuEl;
+
+  if (!m) return;
+
+  petRenderMenu();
+
+  m.hidden = false;
+
+  const r = m.getBoundingClientRect();
+
+  if (x + r.width > window.innerWidth - 8) x = window.innerWidth - r.width - 8;
+
+  if (y + r.height > window.innerHeight - 8) y = y - r.height;   // 贴底边时向上弹
+
+  m.style.left = Math.max(8, x) + 'px';
+
+  m.style.top = Math.max(8, y) + 'px';
+
+}
+
+function petHideMenu(){ if (PET.menuEl) PET.menuEl.hidden = true; }
+
+/* ---------- 起 ---------- */
+
+function petInit(){
+
+  PET.el = document.getElementById('pet');
+
+  if (!PET.el) return;                            // 没有桌宠节点（老页面）→ 静默跳过
+
+  PET.img = document.getElementById('petImg');
+
+  PET.layers = Array.prototype.slice.call(PET.el.querySelectorAll('.pet-layer'));
+
+  PET.fx = document.getElementById('petFx');
+
+  PET.menuEl = document.getElementById('petMenu');
+
+  PET.panelEl = document.getElementById('figCol');
+
+  petRestorePos();
+
+  petBind();
+
+  petRegisterItems();
+
+  bindFigResizer();                               // 图片分析栏的拖宽把手
+
+  window.addEventListener('resize', petClampPos, { passive: true });
+
+  petPreloadGifs();                               // 预加载全部状态，切换才不卡解码
+
+}
+
+/* ==================== 中文覆盖层（功能 1：切换中英文版 PDF）====================
+
+   数据：`GET /api/papers/<id>/translation` → `blocks.json`
+        （每块 = 第几页 + 相对坐标矩形 + 原文 + 中文；由 core/translate_doc.py 产出）
+
+   切换 = **显示/隐藏这一层**（好处见上面 CSS 段的说明）。
+
+   ⚠ 覆盖层 `pointer-events:none`，不许挡底下 PDF 的任何交互。 */
+
+let ZH_PDF_ON = false;      // 当前展示的是不是中文 PDF
+
+/* 切中英文 = **换 PDF 源**（2026-09-27 改；为什么不用覆盖层，见上面 CSS 段的说明）。
+
+   代价是切的时候要重载文件，所以**页码 / 缩放 / 滚动位置必须手动搬过去** ——
+   主人 09-27 的原话："中文的 PDF 必须以同样的缩放同样的页数同样的位置替换英文 PDF"。
+
+   · 缩放 —— `pdfScale` 原样带过去
+   · 位置 —— 按**滚动比例**还原（scrollTop/scrollHeight），比"记住第几页"更稳：
+             两侧页数一致时结果相同；万一不一致（引擎偶尔并页）也不会跳到离谱的地方。
+
+   ⚠ 中文 PDF 的文字层里有 BabelDOC 留下的「兼容汉字」（U+F900 区），**搜索会失灵**；
+     真要搜中文得先做 ToUnicode 后处理 —— 那是另一笔账，记在 HANDOVER §六.4。 */
+
+async function zhSwapPdf(on){
+
+  if (!API) return false;
+
+  if (on === ZH_PDF_ON) return true;
+
+  if (on && !(await zhHas())){                     // 切中文前先确认这一篇真翻过
+    petToast('这一篇还没有中文版：先点「生成翻译版 PDF」');
+    return false;
+  }
+
+  const sc = document.getElementById('pdfScroll');
+
+  const keepScale = pdfScale;
+
+  const keepRatio = (sc && sc.scrollHeight > sc.clientHeight)
+
+    ? (sc.scrollTop + sc.clientHeight / 2) / sc.scrollHeight : null;
+
+  const prev = URL_PDF;
+
+  URL_PDF = on ? (API + '/translation/pdf') : URL_PDF_EN;
+
+  ZH_SWAPPING = true;                              // ← 让 initPdf 跳过"回到上次读到那页"
+
+  try {
+
+    await initPdf();                               // 它内部会重建占位
+
+  } catch (e){
+
+    URL_PDF = prev;                                // 换不成就退回原来那份，别把页面搞成空白
+
+    petToast('中文版读不出来：' + String(e).slice(0, 60));
+
+    return false;
+
+  } finally {
+
+    ZH_SWAPPING = false;
+
+  }
+
+  setPdfScale(keepScale);
+
+  if (keepRatio != null){
+
+    requestAnimationFrame(() => {
+
+      const s2 = document.getElementById('pdfScroll');
+
+      if (s2) s2.scrollTop = Math.max(0, keepRatio * s2.scrollHeight - s2.clientHeight / 2);
+
+    });
+
+  }
+
+  ZH_PDF_ON = !!on;
+
+  // 中文模式下把"按原文坐标画的层"整体藏掉（标注/搜索框/内部链接）——
+  // 它们钉在英文坐标上，中文一重排就全错位了。切回英文自动复原。
+  document.body.classList.toggle('zh-mode', ZH_PDF_ON);
+
+  return true;
+
+}
+
+/* 这一篇有没有中文版 —— 拿 `blocks.json` 当哨兵，它跟中文 PDF 是同一次翻译一起产的。 */
+
+async function zhHas(){
+
+  if (!API) return false;
+
+  try { return !(await (await fetch(API + '/translation')).json()).error; }
+
+  catch (e){ return false; }
+
+}
+
+/* 桌宠「切换中英文」的实际执行者 —— 单击桌宠和菜单项都走这里。
+   返回 true = 切成功（桌宠跟着换状态）；false = 没切成（状态原地不动，提示由这边给）。 */
+
+petSetLangHandler(async lang => await zhSwapPdf(lang === 'zh'));
+
+try { petInit(); } catch (e) { console.error('[桌宠] 初始化失败：', e); }
+
+/* 对外接口 —— 翻译集成（功能 1/3）与以后的模块**只认这几个**，别去碰 PET 内部字段：
+     ANO_PET.busy(true/false)          长任务期间切忙碌态（结束自动回发起前的态）
+     ANO_PET.setLangHandler(fn)        把「切中英文」的真实现挂上去（fn(lang) 返回 bool）
+     ANO_PET.addMenuItem({...})        往右键菜单加一条（扩展位）
+     ANO_PET.state()                   当前状态，调试用 */
+window.ANO_PET = {
+  busy: petBusy,                    // busy(true, '在干什么') / busy(false)
+  setProgress: petSetProgress,      // ★ 长任务自己报进度：setProgress(43) 或 setProgress(43, '翻译论文')
+  setState: petSetState,
+  setLangHandler: petSetLangHandler,
+  addMenuItem: petAddMenuItem,
+  openFigure: petOpenFigure,
+  closeFigure: petCloseFigure,
+  state: () => PET.state,
+};
+
+/* ==================================================================== 解读模式（左栏 AI 对话）
+
+   主人 2026-10-04 拍板（需求/设计真源：`13-需求-解读模式与上下文管理-20261004.md`）：
+
+     · 右键桌宠菜单「解读模式」→ 左栏**翻译页签**变成 AI 对话界面（transBody 顶上来的第二张脸）
+     · 首次进入**自动跑一次「完整解读」**（提示词本体原样 + PDF 全文逐页文本 → 模型）；
+       每篇只跑一次，之后进入秒开；另备「重新解读」（要花钱，点了先确认）
+     · 该模式下划词**不弹翻译卡**，改成把划选内容注入对话（见 onSelect 里那一支）
+     · 追问 = 【全文+解读+历史对话+本次提问】，构造**前缀稳定**（后端 core/interpret_ai.py 管），
+       吃 DeepSeek 前缀缓存 —— "最大开销只允许是首次整篇解读那一次"
+     · 「把解读与对话存进 .ano」开关：打开写进 paper.ano（发给别人也能看到交流过程）
+
+   ⚠ 缓存/记账/落盘三件事全在后端，前端**只负责**：把状态摆给主人看
+     （"已保存"、注入多少 token、多少吃了缓存）+ 提问 + 那个开关。
+
+   进度条：整篇解读是**一次**模型调用，中途没有任何可测进度 —— 所以按"预期耗时"爬到
+   90% 封顶、完成才跳 100%（interpRamp）。"在跑、大概还要多久"比假百分比诚实。 */
+
+const INTERP = {
+
+  on: false,          // 解读模式开关（同时反映到 PET.mode = 'interpret'）
+
+  pid: null,          // 当前论文（= PAPER_ID；开论文是整页刷新，不存在页内切换）
+
+  data: null,         // 服务端 state() 那一整包（解读+索引+对话+总账）
+
+  hasResult: false,
+
+  share: false,       // 「存进 .ano」开关
+
+  anoExists: false,
+
+  busy: false,        // 提问/重跑进行中（防连点）
+
+  quote: null,        // 本次划选 {text, page}
+
+  fig: null,          // 本次引用的图 {name, fp, page}（识图面板「追问这张图」挂上来的，
+                      //   2026-10-04 主人拍板：提问随附原图 + 识图分析，✕ 摘掉回普通对话）
+
+};
+
+function interpEl(id){ return document.getElementById(id); }
+
+/* ---------- 进 / 出 ---------- */
+
+async function interpToggle(){
+
+  if (INTERP.on) interpExit();
+
+  else await interpEnter();
+
+}
+
+async function interpEnter(){
+
+  if (!API){ petToast('先打开一篇论文，再进解读模式'); return; }
+
+  if (INTERP.on) return;
+
+  INTERP.on = true;
+
+  INTERP.pid = PAPER_ID;
+
+  PET.mode = 'interpret';                       // ★ 持久模式开关（状态机的"底态"）
+
+  document.body.classList.add('interp-on');     // 左栏切成聊天窗（见上面 CSS）
+
+  const tb = interpEl('transBody'), ib = interpEl('interpBody');
+
+  if (tb) tb.hidden = true;
+
+  if (ib) ib.hidden = false;
+
+  switchPane('trans');
+
+  interpSyncPet();                              // 桌宠换 explain 态（中文开着则按优先级留 zh）
+
+  await interpRefresh(true);                    // 拉状态；没解读 → 自动跑首次（主人定的默认行为）
+
+}
+
+function interpExit(){
+
+  INTERP.on = false;
+
+  PET.mode = null;
+
+  document.body.classList.remove('interp-on');
+
+  const tb = interpEl('transBody'), ib = interpEl('interpBody');
+
+  if (tb) tb.hidden = false;
+
+  if (ib) ib.hidden = true;
+
+  INTERP.quote = null;
+
+  INTERP.fig = null;
+
+  interpSyncPet();
+
+}
+
+/* 解读模式侧的桌宠状态同步：临时态（figure/busy）不抢；中文开着按主人定的优先级
+   （zh > explain）显示 zh。 */
+function interpSyncPet(){
+
+  if (PET.busy || PET.state === 'figure') return;
+
+  petSetState(ZH_PDF_ON ? 'zh' : petBaseState());
+
+}
+
+/* ---------- 拉状态 / 渲染 ---------- */
+
+async function interpRefresh(autoRun){
+
+  let st = null;
+
+  try { st = await (await fetch(API + '/interpret')).json(); }
+
+  catch (e){ st = null; }
+
+  INTERP.data = (st && !st.error) ? st : { error: (st && st.error) || '读不到解读数据（看服务端日志）' };
+
+  INTERP.hasResult = !!(st && st.saved);
+
+  INTERP.share = !!(st && st.shareInAno);
+
+  INTERP.anoExists = !!(st && st.anoExists);
+
+  interpRender();
+
+  if (INTERP.on && autoRun && st && !st.saved) interpRunFirst(false);   // ★ 首次自动跑
+
+}
+
+function fmtTok(n){
+
+  n = +n || 0;
+
+  if (n < 1000) return String(n);
+
+  return n < 10000 ? (n / 1000).toFixed(1) + 'K' : Math.round(n / 1000) + 'K';
+
+}
+
+function interpHitPct(u){
+
+  u = u || {};
+
+  return (u.promptTokens) ? Math.round(100 * (u.hitTokens || 0) / u.promptTokens) + '%' : '—';
+
+}
+
+function interpStatsHtml(st){
+
+  if (st && st.error) return esc0(st.error);
+
+  if (!INTERP.hasResult)
+
+    return '首次进入会自动生成一份「完整解读」（整篇只跑这一次；之后追问基本都吃缓存）。';
+
+  const u = (st && st.usage) || {}, t = (st && st.totals) || {};
+
+  let s = '生成于 ' + esc0(st.createdAt || '?') + ' · ' + esc0(st.model || '?') +
+
+          ' · 首次输入 ' + fmtTok(u.promptTokens) + ' tok（缓存命中 ' + interpHitPct(u) + '）' +
+
+          ' · 输出 ' + fmtTok(u.outputTokens) + ' tok';
+
+  if ((t.calls || 0) > 1)
+
+    s += '<br>累计 ' + t.calls + ' 次调用 · 注入 ' + fmtTok(t.promptTokens) + ' tok，其中 ' +
+
+         fmtTok(t.hitTokens) + '（' + (t.hitPercent || 0) + '%）吃缓存 —— 只有新内容按全价算';
+
+  return s;
+
+}
+
+function interpRender(){
+
+  const chip = interpEl('interpSaveChip'), redo = interpEl('btnInterpRedo'),
+
+        bidx = interpEl('btnInterpIndex'), stats = interpEl('interpStats'),
+
+        msgs = interpEl('interpMsgs');
+
+  if (!msgs) return;
+
+  const st = INTERP.data || {};
+
+  chip.hidden = !INTERP.hasResult;
+
+  redo.hidden = !INTERP.hasResult;
+
+  bidx.hidden = !INTERP.hasResult;
+
+  bidx.textContent = ((st.index && st.index.text) ? '重建索引' : '建立索引');
+
+  stats.innerHTML = interpStatsHtml(st);        // 内容是自家拼的（含 esc0），不是裸用户输入
+
+  interpRenderShare();
+
+  const html = [];
+
+  if (INTERP.busy)
+
+    html.push('<div class="ip-hello" id="interpGen">正在生成……</div>');
+
+  if (INTERP.hasResult){
+
+    html.push('<div class="ip-sec"><div class="ip-sec-h"><b>完整解读</b>' +
+
+              '<span class="ip-spacer"></span><span>' + esc0(st.createdAt || '') + '</span></div>' +
+
+              '<div class="ip-md">' + interpMd(st.text) + '</div></div>');
+
+    if (st.index && st.index.text)
+
+      html.push('<div class="ip-sec"><div class="ip-sec-h"><b>论文索引</b>' +
+
+                '<span class="ip-spacer"></span><span>' + esc0(st.index.createdAt || '') + '</span></div>' +
+
+                '<div class="ip-md">' + interpMd(st.index.text) + '</div></div>');
+
+  } else if (!INTERP.busy){
+
+    html.push('<div class="ip-hello">' + esc0(st.error || '正在读取…') + '</div>');
+
+  }
+
+  for (const t of (st.chat || [])){
+
+    html.push('<div class="ip-you">' +
+
+              (t.fig ? '<div class="ip-sel">📎 ' + esc0((t.fig.name || 'Figure') +
+
+                       '（这轮随附了原图' + (t.fig.image ? '' : '·未取到') + ' + 识图分析）') + '</div>' : '') +
+
+              (t.sel ? '<div class="ip-sel">' + esc0(t.sel) + '</div>' : '') +
+
+              esc0(t.q) + '</div>');
+
+    html.push('<div class="ip-ai"><div class="ip-md">' + interpMd(t.a) + '</div>' +
+
+              '<div class="ip-meta">' + esc0(t.at || '') +
+
+              (t.usage ? ' · 输入 ' + fmtTok(t.usage.promptTokens) + ' tok（命中 ' +
+
+                         interpHitPct(t.usage) + '）· 输出 ' + fmtTok(t.usage.outputTokens) + ' tok' : '') +
+
+              '</div></div>');
+
+  }
+
+  msgs.innerHTML = html.join('');
+
+  interpScrollEnd();
+
+}
+
+function interpRenderShare(){
+
+  const cb = interpEl('interpShare');
+
+  if (cb) cb.checked = !!INTERP.share;
+
+}
+
+function interpRenderQuote(){
+
+  const q = interpEl('interpQuote');
+
+  if (!q) return;
+
+  /* 引用条现在能挂两种：划选（quote）和图（fig，识图面板「追问这张图」挂上来的）。
+     两个可同时挂、各自可摘；都空就整条收起。 */
+
+  let h = '';
+
+  if (INTERP.quote){
+
+    const pg = INTERP.quote.page ? '第 ' + INTERP.quote.page + ' 页 · ' : '';
+
+    h += '<div class="iq"><b>已引用</b><span>' + esc0(pg + INTERP.quote.text) +
+
+         '</span><button id="interpQuoteX" title="取消引用">✕</button></div>';
+
+  }
+
+  if (INTERP.fig){
+
+    const pg = INTERP.fig.page ? '第 ' + INTERP.fig.page + ' 页 · ' : '';
+
+    h += '<div class="iq"><b>已引用图</b><span>' + esc0(pg + INTERP.fig.name +
+
+         '（提问时会随附原图 + 识图分析）') +
+
+         '</span><button id="interpFigX" title="取消引用">✕</button></div>';
+
+  }
+
+  if (!h){ q.hidden = true; q.innerHTML = ''; return; }
+
+  q.hidden = false;
+
+  q.innerHTML = h;
+
+  const x = interpEl('interpQuoteX');
+
+  if (x) x.onclick = () => { INTERP.quote = null; interpRenderQuote(); };
+
+  const fx = interpEl('interpFigX');
+
+  if (fx) fx.onclick = () => { INTERP.fig = null; interpRenderQuote(); };
+
+}
+
+function interpScrollEnd(){
+
+  const m = interpEl('interpMsgs');
+
+  if (m) m.scrollTop = m.scrollHeight;
+
+}
+
+function interpSys(msg){
+
+  const msgs = interpEl('interpMsgs');
+
+  if (!msgs) return;
+
+  msgs.insertAdjacentHTML('beforeend', '<div class="ip-sys">' + esc0(msg) + '</div>');
+
+  interpScrollEnd();
+
+}
+
+/* ---------- 划词 → 引用（onSelect 在解读模式下走这儿）---------- */
+
+function interpAddQuote(text, range){
+
+  let page = null;
+
+  try {
+
+    const node = range && range.startContainer;
+
+    const el = node && (node.nodeType === 1 ? node : node.parentElement);
+
+    const pg = el && el.closest ? el.closest('.pdfPage') : null;
+
+    if (pg && pg.dataset.page) page = +pg.dataset.page;
+
+  } catch (e){}
+
+  INTERP.quote = { text: String(text || '').replace(/\s+/g, ' ').trim(), page };
+
+  switchPane('trans');                          // 划了就把对话摆到眼前（引用条 + 提问框）
+
+  interpRenderQuote();
+
+  interpScrollEnd();
+
+  petToast('已引用这段' + (page ? '（第 ' + page + ' 页）' : '') + ' —— 在下面提问会带上它');
+
+  const inp = interpEl('interpInput');
+
+  if (inp) { try { inp.focus(); } catch (e){} }
+
+}
+
+/* ---------- 跑任务（完整解读 / 索引）---------- */
+
+async function interpRunFirst(force){
+
+  if (INTERP.busy) return;
+
+  if (force && !confirm('「重新解读」＝ 整篇重跑一次模型：\n· 一次约几毛到一块钱、跑几分钟\n' +
+                        '· 之后的追问不花钱（吃缓存）\n\n确定重跑？')) return;
+
+  let r = null;
+
+  try {
+
+    r = await (await fetch(API + '/interpret', { method: 'POST',
+
+      headers: { 'Content-Type': 'application/json' },
+
+      body: JSON.stringify({ force: !!force }) })).json();
+
+  } catch (e){ petToast('启动失败：' + e); return; }
+
+  if (!r || r.error || !r.job){ petToast('启动失败：' + ((r && r.error) || '后端没给任务号')); return; }
+
+  INTERP.busy = true;
+
+  interpRender();                               // 出"正在生成…"占位
+
+  petBusy(true, force ? '重新解读' : '完整解读');
+
+  const j = await interpRamp(r.job, force ? '重新解读' : '完整解读', 240, 1800);
+
+  INTERP.busy = false;
+
+  petBusy(false);
+
+  if (!j || j.state !== 'done'){
+
+    await interpRefresh(false);
+
+    interpSys('没跑完：' + ((j && j.error) || '等太久了 —— 后台可能还在跑，去服务端日志看看'));
+
+    return;
+
+  }
+
+  await interpRefresh(false);
+
+  petToast(INTERP.hasResult ? '解读好了（已保存）' : '跑完了，但服务端说没存上 —— 看日志');
+
+}
+
+async function interpRunIndex(){
+
+  if (INTERP.busy || !INTERP.hasResult) return;
+
+  const has = !!(INTERP.data && INTERP.data.index && INTERP.data.index.text);
+
+  if (has && !confirm('论文索引已经建过了。重新建一份？\n（单独一次调用：大头吃缓存，只重生成索引文本）')) return;
+
+  let r = null;
+
+  try { r = await (await fetch(API + '/interpret/index', { method: 'POST' })).json(); }
+
+  catch (e){ petToast('启动失败：' + e); return; }
+
+  if (!r || r.error || !r.job){ petToast('启动失败：' + ((r && r.error) || '后端没给任务号')); return; }
+
+  INTERP.busy = true;
+
+  interpRender();
+
+  petBusy(true, '论文索引');
+
+  const j = await interpRamp(r.job, '论文索引', 90, 900);
+
+  INTERP.busy = false;
+
+  petBusy(false);
+
+  await interpRefresh(false);
+
+  if (!j || j.state !== 'done')
+
+    interpSys('索引没跑成：' + ((j && j.error) || '看服务端日志'));
+
+  else petToast('索引好了');
+
+}
+
+/* 轮询任务 + "按预期耗时爬升"的进度条（整篇解读中途没有可测进度，只能这么报）。
+
+   `expectedSec` = 典型耗时，爬到 90% 封顶；`maxSec` 是放弃等下去的闸（后台照跑）。 */
+async function interpRamp(jobId, what, expectedSec, maxSec){
+
+  const t0 = Date.now();
+
+  for (;;){
+
+    await new Promise(s => setTimeout(s, 1000));
+
+    const el = (Date.now() - t0) / 1000;
+
+    let j = null;
+
+    try { j = await (await fetch('/api/jobs/' + jobId)).json(); } catch (e){}
+
+    if (j && (j.state === 'done' || j.state === 'failed')) return j;
+
+    petSetProgress(Math.min(90, 8 + (el / expectedSec) * 82), what);
+
+    const g = interpEl('interpGen');
+
+    if (g) g.textContent = '正在生成' + what + '……已等 ' + Math.round(el) +
+
+                           ' 秒（整篇解读要通读全文，跑几分钟正常；跑着不用守着）';
+
+    if (el > maxSec) return null;
+
+  }
+
+}
+
+/* ---------- 追问 ---------- */
+
+async function interpAsk(){
+
+  if (INTERP.busy) return;
+
+  if (!INTERP.hasResult){ petToast('解读还没生成好 —— 等它跑完再提问'); return; }
+
+  const inp = interpEl('interpInput');
+
+  const q = ((inp && inp.value) || '').trim();
+
+  const quote = INTERP.quote;
+
+  const fig = INTERP.fig;
+
+  if (!q && !quote && !fig){ petToast('先写个问题，或划选一段、或从识图面板引用一张图'); return; }
+
+  INTERP.busy = true;
+
+  // 先把"你 + 思考中"摆出来（等服务端回话时界面不干等）
+  const msgs = interpEl('interpMsgs');
+
+  if (msgs) msgs.insertAdjacentHTML('beforeend',
+
+    '<div class="ip-you">' + (quote ? '<div class="ip-sel">' + esc0(quote.text) + '</div>' : '') +
+
+    (fig ? '<div class="ip-sel">📎 ' + esc0(fig.name + '（随附原图 + 识图分析）') + '</div>' : '') +
+
+    esc0(q || (fig ? '（就这张图提问）' : '（就划选内容提问）')) + '</div>' +
+
+    '<div class="ip-ai"><div class="ip-meta">正在读原文并回答…（命中缓存几秒就回；冷启动要几十秒）</div></div>');
+
+  interpScrollEnd();
+
+  if (inp) inp.value = '';
+
+  /* ⚠ 划选引用是"一次性的"（发送即消费）；**图引用不消费**——挂着它就能连着问这张图，
+     直到自己点 ✕（2026-10-04 主人定的交互）。 */
+
+  INTERP.quote = null; interpRenderQuote();
+
+  petBusy(true, '解读追问');
+
+  const t0 = Date.now();
+
+  petSetProgress(12, '解读追问');
+
+  const ramp = setInterval(() => petSetProgress(
+
+    Math.min(90, 12 + (Date.now() - t0) / 1000 / 40 * 78), '解读追问'), 1000);
+
+  let errMsg = null;
+
+  try {
+
+    const r = await (await fetch(API + '/interpret/ask', { method: 'POST',
+
+      headers: { 'Content-Type': 'application/json' },
+
+      body: JSON.stringify({ q, sel: quote ? quote.text : '',
+
+                             page: quote ? quote.page : (fig ? fig.page : null),
+
+                             fig: fig ? { name: fig.name, fp: fig.fp } : null }) })).json();
+
+    if (r && r.error) errMsg = r.error;
+
+    else (INTERP.data.chat = INTERP.data.chat || []).push(r.turn);
+
+  } catch (e){ errMsg = String(e); }
+
+  clearInterval(ramp);
+
+  petBusy(false);
+
+  INTERP.busy = false;
+
+  interpRender();                               // 重建（思考中气泡自然消失）
+
+  if (errMsg){
+
+    interpSys('这一问没成：' + errMsg);
+
+    if (inp && q) inp.value = q;                // 问题还给你（改改再发）
+
+  }
+
+}
+
+/* ---------- 「存进 .ano」开关（主人 2026-10-04 新要求）---------- */
+
+async function interpSetShare(on){
+
+  let r = null;
+
+  try {
+
+    r = await (await fetch(API + '/interpret/share', { method: 'POST',
+
+      headers: { 'Content-Type': 'application/json' },
+
+      body: JSON.stringify({ on: !!on }) })).json();
+
+  } catch (e){ petToast('没切成：' + e); }
+
+  if (!r || r.error){
+
+    petToast('没切成：' + ((r && r.error) || '看服务端日志'));
+
+  } else {
+
+    INTERP.share = !!r.shareInAno;
+
+    INTERP.anoExists = !!r.anoExists;
+
+    const ano = r.ano || {};
+
+    if (!r.anoExists)
+
+      petToast(on ? '已记住开关。这一篇还没有 .ano 文件 —— 以后生成/更新 .ano 时会自动带上。'
+
+                  : '已关掉（这一篇没有 .ano，本来就不会带到别处）');
+
+    else if (ano.ok && ano.skipped)
+
+      petToast(on ? '开关已开（.ano 里本来就有最新的）' : '开关已关（.ano 里本来就没有）');
+
+    else if (ano.ok)
+
+      petToast(on ? '已写进 paper.ano —— 把文件发给别人，对方也能看到对话了'
+
+                  : '已从 paper.ano 里拿掉（这个文件里不再带对话）');
+
+    else
+
+      petToast('开关记下了，但 .ano 这次没写成：' + ((ano.errors && ano.errors[0]) || '看服务端日志'));
+
+  }
+
+  interpRenderShare();                          // checkbox 与真实状态对齐（失败时回弹）
+
+}
+
+/* ---------- 模型回话的轻量 Markdown → HTML ----------
+
+   为什么自己写：不引第三方库（打包体积/离线都省心），而这一层只要读得顺。
+   安全：**先 esc0 转义再拼标签** —— 模型回话里的 HTML 一律当文字显示，绝不执行。
+   覆盖：标题 / 列表 / 引用 / 表格 / 代码块 / 分隔线 / 粗斜体 / 行内代码。
+   ⚠ 只用于**我们自己的容器**（.ip-md），别拿它渲染别处的内容。 */
+function interpMd(md){
+
+  const lines = String(md == null ? '' : md).replace(/\r\n?/g, '\n').split('\n');
+
+  const inl = s => esc0(s)
+
+    .replace(/\*\*([^*]+)\*\*/g, '<b>$1</b>')
+
+    .replace(/(^|[^*\w])\*([^*\n]+)\*/g, '$1<i>$2</i>')
+
+    .replace(/`([^`\n]+)`/g, '<code>$1</code>');
+
+  const LIST = /^\s*(?:([-*+])|(\d+)[.)])\s+(.*)$/;
+
+  const isBlank = s => !s.trim();
+
+  const cells = row => {
+
+    let t = row.trim();
+
+    if (t.startsWith('|')) t = t.slice(1);
+
+    if (t.endsWith('|')) t = t.slice(0, -1);
+
+    return t.split('|').map(x => x.trim());
+
+  };
+
+  let out = '', i = 0;
+
+  const n = lines.length;
+
+  while (i < n){
+
+    const ln = lines[i];
+
+    let m;
+
+    if (isBlank(ln)){ i++; continue; }
+
+    if (/^\s*```/.test(ln)){                                  // 代码块
+
+      const buf = [];
+
+      i++;
+
+      while (i < n && !/^\s*```/.test(lines[i])){ buf.push(lines[i]); i++; }
+
+      i++;
+
+      out += '<pre><code>' + esc0(buf.join('\n')) + '</code></pre>';
+
+      continue;
+
+    }
+
+    if ((m = ln.match(/^(#{1,6})\s+(.*)$/))){                 // 标题
+
+      out += '<h' + m[1].length + '>' + inl(m[2]) + '</h' + m[1].length + '>';
+
+      i++; continue;
+
+    }
+
+    if (/^\s*(-{3,}|\*{3,}|_{3,})\s*$/.test(ln)){ out += '<hr>'; i++; continue; }
+
+    if (/^\s*>/.test(ln)){                                    // 引用
+
+      const buf = [];
+
+      while (i < n && /^\s*>/.test(lines[i])){ buf.push(lines[i].replace(/^\s*>\s?/, '')); i++; }
+
+      out += '<blockquote>' + inl(buf.join(' ')) + '</blockquote>';
+
+      continue;
+
+    }
+
+    if (/^\s*\|/.test(ln) && i + 1 < n && lines[i + 1].includes('-') &&
+
+        /^\s*\|?[\s:|-]+\|?\s*$/.test(lines[i + 1])){         // 表格（下一行是 |---| 分隔）
+
+      const head = cells(ln);
+
+      i += 2;
+
+      const rows = [];
+
+      while (i < n && /^\s*\|/.test(lines[i])){ rows.push(cells(lines[i])); i++; }
+
+      out += '<table><thead><tr>' + head.map(h => '<th>' + inl(h) + '</th>').join('') +
+
+             '</tr></thead><tbody>' +
+
+             rows.map(r => '<tr>' + r.map(c => '<td>' + inl(c) + '</td>').join('') + '</tr>').join('') +
+
+             '</tbody></table>';
+
+      continue;
+
+    }
+
+    if (ln.match(LIST)){                                      // 列表
+
+      const ordered = !!ln.match(LIST)[2];
+
+      const buf = [];
+
+      while (i < n && lines[i].match(LIST)){ buf.push(lines[i].match(LIST)[3]); i++; }
+
+      out += (ordered ? '<ol>' : '<ul>') +
+
+             buf.map(x => '<li>' + inl(x) + '</li>').join('') +
+
+             (ordered ? '</ol>' : '</ul>');
+
+      continue;
+
+    }
+
+    const buf = [ln];                                         // 段落（内部单换行 → <br>）
+
+    i++;
+
+    while (i < n && !isBlank(lines[i]) && !/^\s*(#{1,6}\s|>|```|\|)/.test(lines[i]) &&
+
+           !lines[i].match(LIST)){ buf.push(lines[i]); i++; }
+
+    out += '<p>' + buf.map(inl).join('<br>') + '</p>';
+
+  }
+
+  return out;
+
+}
+
+/* ---------- 挂菜单 + 绑定 ---------- */
+
+petAddMenuItem({
+
+  id: 'interpret',
+
+  // label 支持函数：开关项跟着状态改字（petRenderMenu 里现算）
+  label: () => (INTERP.on ? '退出解读模式' : '解读模式'),
+
+  fn: interpToggle,
+
+  enabledWhen: () => !PET.busy && !!API,
+
+});
+
+(function interpBind(){
+
+  const send = interpEl('btnInterpSend');
+
+  if (send) send.onclick = interpAsk;
+
+  const inp = interpEl('interpInput');
+
+  if (inp) inp.addEventListener('keydown', e => {
+
+    // Enter 发送 / Shift+Enter 换行；⚠ isComposing：中文输入法选字的回车不能当发送
+    if (e.key === 'Enter' && !e.shiftKey && !e.isComposing){ e.preventDefault(); interpAsk(); }
+
+  });
+
+  const redo = interpEl('btnInterpRedo');
+
+  if (redo) redo.onclick = () => interpRunFirst(true);
+
+  const bidx = interpEl('btnInterpIndex');
+
+  if (bidx) bidx.onclick = interpRunIndex;
+
+  const sh = interpEl('interpShare');
+
+  if (sh) sh.addEventListener('change', () => interpSetShare(sh.checked));
+
+})();
 
 })();
 
