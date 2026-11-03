@@ -21,7 +21,7 @@
 ; ============================================================
 
 #define AppName "AnonSight"
-#define AppVer "0.1.0"
+#define AppVer "0.1.1"
 #define AppPub "liebaojun"
 #define SrcDir "dist\AnonSight"
 

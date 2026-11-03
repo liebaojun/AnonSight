@@ -12,7 +12,7 @@ REM  AnonSight 一键打包（程序 + 安装程序）
 REM
 REM  产出：
 REM    dist\AnonSight\                       程序本体（文件夹模式，启动 1-2 秒）
-REM    installer\AnonSight-0.1.0-Setup-preview.exe  发给别人的就是这一个
+REM    installer\AnonSight-0.1.1-Setup-preview.exe  发给别人的就是这一个
 REM
 REM  ⚠ 打包前确认没把个人数据带进去 —— 白名单在 app.spec，
 REM     打完之后 exe 启动时还会自检（混进 .keys.json / papers/ 会拒绝启动）。

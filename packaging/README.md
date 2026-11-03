@@ -9,7 +9,7 @@
 | 产物 | 路径 |
 |---|---|
 | 程序本体（文件夹模式） | `dist\AnonSight\AnonSight.exe` |
-| **安装程序**（发给别人的） | `installer\AnonSight-0.1.0-安装程序.exe` |
+| **安装程序**（发给别人的） | `installer\AnonSight-<版本>-Setup-preview.exe` |
 
 用户不需要装 Python、不需要开浏览器。
 
@@ -135,13 +135,13 @@ python packaging/smoke-test.py      # ② 实跑：真启动它，等本地服�
 
 - 后端是 Python，**PyInstaller 能把 Python 运行时一起打包进去** → 用户什么都不用装
 - Tauri/Electron 套壳的话，还得**另外解决"Python 怎么带上"**（要么让用户装 Python，要么再嵌一个运行时），复杂度翻倍
-- 代价是体积大（程序本体 664 MB / 安装包 171 MB，大头是 sklearn+scipy+numpy），换来"什么都不用装"
+- 代价是体积大（程序本体约 238 MB / 安装包约 84 MB，大头是 sklearn+scipy+numpy），换来"什么都不用装"
 
 （Windows 上用系统自带的 WebView2 渲染，Win10/11 都有，不用额外装。）
 
 ## 安装器（Inno Setup）
 
-`installer.iss` → 产出 `installer\AnonSight-0.1.0-安装程序.exe`（171 MB）
+`installer.iss` → 产出 `installer\AnonSight-<版本>-Setup-preview.exe`
 
 管四件"运行时做不好"的事：
 ① **让用户选安装位置** ② 建开始菜单 / 桌面快捷方式

@@ -205,7 +205,7 @@ def _build_manifest(pid, payload, pdf_bytes, pages, highlights=0, pdf_only=0, **
     """构造 manifest。`pdf_bytes=None` 时不写 sha（固化场景：底座没动，沿用旧值）"""
     now = _now()
     m = {
-        'format': FORMAT, 'version': VERSION, 'app': APP, 'appVersion': '0.1.0',
+        'format': FORMAT, 'version': VERSION, 'app': APP, 'appVersion': '0.1.1',
         'pid': pid, 'createdAt': kw.get('createdAt') or now, 'modifiedAt': now,
         'payload': {n: {'bytes': len(d), 'sha256': _sha(d)} for n, d in payload.items()},
         'pdf': {'pages': pages, 'sha256': _sha(pdf_bytes) if pdf_bytes is not None

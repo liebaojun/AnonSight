@@ -88,7 +88,7 @@
 
 ### 方式一：下载安装包（推荐，什么都不用装）
 
-到 [**Releases**](../../releases) 下载 `AnonSight-0.1.0-Setup-preview.exe`，双击安装。
+到 [**Releases**](../../releases) 下载**最新版安装包**，双击安装。
 装完**不需要你电脑里有 Python**（解释器和全部依赖都打在包里了）、不用开浏览器，双击即用。
 
 > ⚠️ 安装包**没有代码签名**，第一次装会被 Windows SmartScreen 拦成「未知发布者」。
