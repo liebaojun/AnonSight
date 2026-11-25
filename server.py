@@ -403,7 +403,8 @@ _MOD_MTIME = {}
 _CORE_MODULES = ['pipeline', 'core.pdftext', 'core.quotefix', 'core.adapters',
                  'core.locate', 'core.layout', 'core.sectioner', 'core.structure_ai',
                  'core.pipeline_ai', 'core.annotate_ai', 'core.translate_ai',
-                 'core.interpret_ai']       # 解读模式（2026-10-04）
+                 'core.interpret_ai',        # 解读模式（2026-10-04）
+                 'core.translate_doc']       # 双语块表（2026-11-25：不在列表里 → 改了不重载，白修）
 
 # 指纹表里除内核模块之外**还要盯**的文件：它们不是 import 进来的模块（既不能热重载、
 # 也不该混进 _CORE_MODULES），但"改了没生效"一样会让验收报告验错代码——验收 02 / 04
